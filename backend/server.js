@@ -1,7 +1,6 @@
 require('dotenv').config();
 
 const http = require('http');
-const cors = require('cors');
 const express = require('express');
 const { Server } = require('socket.io');
 
@@ -30,18 +29,24 @@ function createNoopIo() {
 }
 
 function createApp(options = {}) {
-  const enableRealtime =
-    options.enableRealtime ??
-    process.env.ENABLE_REALTIME !== 'false';
+  const enableRealtime = options.enableRealtime ?? process.env.ENABLE_REALTIME !== 'false';
 
   const app = express();
 
-  app.use(
-    cors({
-      origin: process.env.CLIENT_ORIGIN || '*',
-      credentials: true
-    })
-  );
+  const allowedOrigin = process.env.CLIENT_ORIGIN || '*';
+  app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+
+    return next();
+  });
+
   app.use(express.json());
 
   app.get('/', (req, res) => {
@@ -98,4 +103,3 @@ module.exports = {
   createApp,
   startServer
 };
-
