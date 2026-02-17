@@ -1,6 +1,34 @@
-const { createApp } = require('../backend/server');
+let app = null;
+let bootError = null;
 
-const { app } = createApp({ enableRealtime: false });
+function getApp() {
+  if (app || bootError) {
+    return;
+  }
 
-module.exports = app;
+  try {
+    const { createApp } = require('../backend/server');
+    app = createApp({ enableRealtime: false }).app;
+  } catch (error) {
+    bootError = error;
+  }
+}
 
+module.exports = (req, res) => {
+  getApp();
+
+  if (bootError) {
+    const details =
+      bootError?.stack ||
+      bootError?.message ||
+      String(bootError);
+
+    return res.status(500).json({
+      ok: false,
+      error: 'api_boot_failed',
+      details
+    });
+  }
+
+  return app(req, res);
+};
