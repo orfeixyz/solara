@@ -14,6 +14,25 @@ export default function RegisterScreen() {
     setForm((prev) => ({ ...prev, [event.target.name]: event.target.value }));
   };
 
+  const toText = (value) => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    if (Array.isArray(value)) return value.map((item) => toText(item)).filter(Boolean).join(" | ");
+    if (typeof value === "object") {
+      const combined = [toText(value.message), toText(value.error), toText(value.details)]
+        .filter(Boolean)
+        .join(" | ");
+      if (combined) return combined;
+      try {
+        return JSON.stringify(value);
+      } catch (_error) {
+        return "Unexpected error";
+      }
+    }
+    return "Unexpected error";
+  };
+
   const onSubmit = async (event) => {
     event.preventDefault();
     setError("");
@@ -22,10 +41,10 @@ export default function RegisterScreen() {
       navigate("/login");
     } catch (err) {
       const nextError =
-        err?.message ||
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        (err && typeof err === "object" ? JSON.stringify(err) : String(err));
+        toText(err?.response?.data) ||
+        toText(err?.message) ||
+        toText(err) ||
+        "Register failed";
       setError(nextError);
     }
   };
@@ -57,4 +76,5 @@ export default function RegisterScreen() {
     </div>
   );
 }
+
 
