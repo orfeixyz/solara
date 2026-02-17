@@ -242,29 +242,52 @@ export function setAuthToken(token) {
   }
 }
 
-function asErrorText(value) {
+function flattenErrorText(value) {
+  if (!value) {
+    return "";
+  }
+
   if (typeof value === "string") {
     return value;
   }
-  if (value && typeof value === "object") {
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => flattenErrorText(entry)).filter(Boolean).join(" | ");
+  }
+
+  if (typeof value === "object") {
+    const message = flattenErrorText(value.message);
+    const error = flattenErrorText(value.error);
+    const details = flattenErrorText(value.details);
+    const combined = [message, error, details].filter(Boolean).join(" | ");
+
+    if (combined) {
+      return combined;
+    }
+
     try {
-      return JSON.stringify(value);
-    } catch (_error) {
-      return String(value);
+      const json = JSON.stringify(value);
+      return json === "{}" ? "" : json;
+    } catch (_e) {
+      return "";
     }
   }
+
   return "";
 }
 
 function parseError(error, fallback = "Request failed") {
   const responseData = error?.response?.data;
-  return (
-    asErrorText(responseData?.message) ||
-    asErrorText(responseData?.error) ||
-    asErrorText(responseData?.details) ||
-    asErrorText(error?.message) ||
-    fallback
-  );
+  const resolved =
+    flattenErrorText(responseData) ||
+    flattenErrorText(error?.message) ||
+    fallback;
+
+  return resolved === "[object Object]" ? fallback : resolved;
 }
 
 export async function registerUser(payload) {
@@ -607,6 +630,7 @@ export async function activateHeliumCore(payload) {
 }
 
 export { API_URL, USE_MOCK_API };
+
 
 
 

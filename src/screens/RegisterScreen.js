@@ -21,7 +21,12 @@ export default function RegisterScreen() {
       await register(form);
       navigate("/login");
     } catch (err) {
-      setError(err.message);
+      const nextError =
+        err?.message ||
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        (err && typeof err === "object" ? JSON.stringify(err) : String(err));
+      setError(nextError);
     }
   };
 
@@ -52,3 +57,4 @@ export default function RegisterScreen() {
     </div>
   );
 }
+
