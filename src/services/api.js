@@ -242,8 +242,29 @@ export function setAuthToken(token) {
   }
 }
 
+function asErrorText(value) {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value && typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch (_error) {
+      return String(value);
+    }
+  }
+  return "";
+}
+
 function parseError(error, fallback = "Request failed") {
-  return error?.response?.data?.message || error?.response?.data?.error || error?.message || fallback;
+  const responseData = error?.response?.data;
+  return (
+    asErrorText(responseData?.message) ||
+    asErrorText(responseData?.error) ||
+    asErrorText(responseData?.details) ||
+    asErrorText(error?.message) ||
+    fallback
+  );
 }
 
 export async function registerUser(payload) {
@@ -586,6 +607,7 @@ export async function activateHeliumCore(payload) {
 }
 
 export { API_URL, USE_MOCK_API };
+
 
 
 
