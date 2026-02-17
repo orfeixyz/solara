@@ -3,18 +3,26 @@ const ws = require('ws');
 
 neonConfig.webSocketConstructor = ws;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL is missing. Add it to backend/.env');
+let pool = null;
+
+function getPool() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is missing. Configure it in Vercel Environment Variables.');
+  }
+
+  if (!pool) {
+    pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  }
+
+  return pool;
 }
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-
 async function query(text, params = []) {
-  return pool.query(text, params);
+  return getPool().query(text, params);
 }
 
 async function withTransaction(work) {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query('BEGIN');
     const result = await work(client);
@@ -29,7 +37,9 @@ async function withTransaction(work) {
 }
 
 module.exports = {
-  pool,
+  get pool() {
+    return pool;
+  },
   query,
   withTransaction
 };

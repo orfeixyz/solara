@@ -313,7 +313,7 @@ export async function registerUser(payload) {
   }
 
   try {
-    const { data } = await apiClient.post("/register", payload);
+    const { data } = await apiClient.post("/api/auth/register", payload);
     return data;
   } catch (error) {
     throw new Error(parseError(error, "Register failed"));
@@ -340,7 +340,7 @@ export async function loginUser(payload) {
   }
 
   try {
-    const { data } = await apiClient.post("/login", payload);
+    const { data } = await apiClient.post("/api/auth/login", payload);
     return data;
   } catch (error) {
     throw new Error(parseError(error, "Login failed"));
@@ -383,7 +383,7 @@ export async function getIslandById(islandId) {
   }
 
   try {
-    const { data } = await apiClient.get(`/island/${islandId}`);
+    const { data } = await apiClient.get(`/api/island/${islandId}`);
     if (data?.island) {
       const base = mockIslandDetails(String(islandId));
       const island = data.island;
@@ -464,7 +464,7 @@ export async function buildOrUpgrade(payload) {
       body.type = backendType;
     }
 
-    const { data } = await apiClient.post("/build", body);
+    const { data } = await apiClient.post("/api/build", body);
     const refreshedIsland = await getIslandById(payload?.islandId);
     return {
       ...data,
@@ -539,7 +539,7 @@ export async function destroyBuilding(payload) {
   }
 
   try {
-    const { data } = await apiClient.post("/destroy", {
+    const { data } = await apiClient.post("/api/build/destroy", {
       islandId: Number(payload?.islandId),
       posX: Number(payload?.x),
       posY: Number(payload?.y)
@@ -561,7 +561,7 @@ export async function getResourceTotals() {
   }
 
   try {
-    const { data } = await apiClient.get("/resources");
+    const { data } = await apiClient.get("/api/resources");
     return normalizeResources(data);
   } catch (error) {
     throw new Error(parseError(error, "Could not fetch resources"));
@@ -630,6 +630,7 @@ export async function activateHeliumCore(payload) {
 }
 
 export { API_URL, USE_MOCK_API };
+
 
 
 

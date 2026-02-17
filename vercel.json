@@ -19,14 +19,6 @@
       "dest": "/api/index.js"
     },
     {
-      "src": "/(login|register|build|destroy|resources|health)",
-      "dest": "/api/index.js"
-    },
-    {
-      "src": "/island/(.*)",
-      "dest": "/api/index.js"
-    },
-    {
       "handle": "filesystem"
     },
     {
