@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Isometric SVG Grid Builder</title>
+  <style>
+    :root {
+      --bg: #eef6f1;
+      --panel: #ffffff;
+      --line: #b7d2c0;
+      --text: #1f3f32;
+      --accent: #39a36b;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 14px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .toolbar label {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .toolbar select, .toolbar button {
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .stage {
+      display: grid;
+      place-items: center;
+      padding: 12px;
+      overflow: auto;
+    }
+
+    #svgHost {
+      width: min(1200px, 96vw);
+      height: min(760px, 88vh);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .grid-cell {
+      fill: rgba(57, 163, 107, 0.12);
+      stroke: rgba(35, 105, 73, 0.45);
+      stroke-width: 1.2;
+      cursor: pointer;
+      transition: fill 120ms ease;
+    }
+
+    .grid-cell:hover {
+      fill: rgba(57, 163, 107, 0.28);
+    }
+
+    .grid-cell.occupied {
+      fill: rgba(68, 138, 255, 0.18);
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <label for="buildingSelect">Building:</label>
+    <select id="buildingSelect">
+      <option value="solar">Solar Center</option>
+      <option value="biogarden">BioGarden</option>
+      <option value="community">Community Center</option>
+    </select>
+    <button id="clearBtn" type="button">Clear Buildings</button>
+    <span id="status"></span>
+  </div>
+
+  <div class="stage">
+    <div id="svgHost"></div>
+  </div>
+
+  <script>
+    const CONFIG = {
+      svgUrl: "/images/layout-island.svg",
+      rows: 5,
+      cols: 5,
+      tileW: 120,
+      tileH: 60,
+      originX: 740,
+      originY: 300,
+      buildingW: 82,
+      buildingH: 82
+    };
+
+    const BUILDINGS = {
+      solar: { href: "/images/solar-center-1.png" },
+      biogarden: { href: "/images/biogarden-1.png" },
+      community: { href: "/images/comunity-center-1.png" }
+    };
+
+    const NS = "http://www.w3.org/2000/svg";
+    const occupied = new Set();
+
+    let rootSvg = null;
+    let gridLayer = null;
+    let buildingLayer = null;
+    let viewBox = null;
+
+    function status(msg) {
+      document.getElementById("status").textContent = msg;
+    }
+
+    function createSvgEl(tag, attrs = {}) {
+      const el = document.createElementNS(NS, tag);
+      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+      return el;
+    }
+
+    function isoCenter(col, row) {
+      const { tileW, tileH, originX, originY } = CONFIG;
+      const x = originX + (col - row) * (tileW / 2);
+      const y = originY + (col + row) * (tileH / 2);
+      return { x, y };
+    }
+
+    function diamondPoints(cx, cy, w, h) {
+      return [
+        [cx, cy - h / 2],
+        [cx + w / 2, cy],
+        [cx, cy + h / 2],
+        [cx - w / 2, cy]
+      ];
+    }
+
+    function pointsToAttr(pts) {
+      return pts.map(([x, y]) => `${x},${y}`).join(" ");
+    }
+
+    function insideViewBox(pts) {
+      const { x, y, width, height } = viewBox;
+      return pts.every(([px, py]) => px >= x && px <= x + width && py >= y && py <= y + height);
+    }
+
+    function placeBuilding(cellKey, cx, cy) {
+      if (occupied.has(cellKey)) return;
+
+      const buildingType = document.getElementById("buildingSelect").value;
+      const asset = BUILDINGS[buildingType];
+      if (!asset) return;
+
+      const w = CONFIG.buildingW;
+      const h = CONFIG.buildingH;
+
+      const img = createSvgEl("image", {
+        href: asset.href,
+        x: cx - w / 2,
+        y: cy - h + 12,
+        width: w,
+        height: h,
+        preserveAspectRatio: "xMidYMid meet",
+        "data-cell-key": cellKey
+      });
+
+      buildingLayer.appendChild(img);
+      occupied.add(cellKey);
+
+      const cellPoly = gridLayer.querySelector(`[data-cell-key="${cellKey}"]`);
+      if (cellPoly) cellPoly.classList.add("occupied");
+    }
+
+    function createGrid() {
+      const { rows, cols, tileW, tileH } = CONFIG;
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const { x: cx, y: cy } = isoCenter(col, row);
+          const key = `${row}-${col}`;
+          const pts = diamondPoints(cx, cy, tileW, tileH);
+
+          if (!insideViewBox(pts)) continue;
+
+          const poly = createSvgEl("polygon", {
+            points: pointsToAttr(pts),
+            class: "grid-cell",
+            "data-row": row,
+            "data-col": col,
+            "data-cell-key": key
+          });
+
+          poly.addEventListener("click", () => {
+            placeBuilding(key, cx, cy);
+          });
+
+          gridLayer.appendChild(poly);
+        }
+      }
+    }
+
+    async function loadInlineSvg() {
+      const res = await fetch(CONFIG.svgUrl);
+      if (!res.ok) throw new Error(`Could not load SVG (${res.status})`);
+
+      const svgText = await res.text();
+      const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+      const loadedSvg = doc.querySelector("svg");
+      if (!loadedSvg) throw new Error("Invalid SVG file");
+
+      rootSvg = document.importNode(loadedSvg, true);
+      rootSvg.setAttribute("width", "100%");
+      rootSvg.setAttribute("height", "100%");
+      rootSvg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+      const vb = rootSvg.getAttribute("viewBox");
+      if (!vb) throw new Error("SVG must have a viewBox");
+      const [x, y, width, height] = vb.split(/\s+/).map(Number);
+      viewBox = { x, y, width, height };
+
+      gridLayer = createSvgEl("g", { id: "iso-grid-layer" });
+      buildingLayer = createSvgEl("g", { id: "building-layer" });
+
+      rootSvg.appendChild(gridLayer);
+      rootSvg.appendChild(buildingLayer);
+
+      document.getElementById("svgHost").appendChild(rootSvg);
+    }
+
+    function clearBuildings() {
+      occupied.clear();
+      while (buildingLayer.firstChild) buildingLayer.removeChild(buildingLayer.firstChild);
+      gridLayer.querySelectorAll(".grid-cell.occupied").forEach(c => c.classList.remove("occupied"));
+    }
+
+    async function init() {
+      try {
+        await loadInlineSvg();
+        createGrid();
+
+        document.getElementById("clearBtn").addEventListener("click", clearBuildings);
+        status("Click a diamond cell to place a building.");
+      } catch (err) {
+        status(`Error: ${err.message}. If opened as file://, use a local server.`);
+        console.error(err);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
