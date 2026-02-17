@@ -2,8 +2,10 @@ import axios from "axios";
 import { imageMap } from "../data/imageMap";
 import { mockIslandDetails, mockIslands, mockResources } from "../data/mockData";
 
-const API_URL = process.env.REACT_APP_API_URL?.trim() || "";
-const USE_MOCK_API = !API_URL;
+const API_URL =
+  process.env.REACT_APP_API_URL?.trim() ||
+  (process.env.NODE_ENV === "development" ? "http://localhost:4000" : "");
+const USE_MOCK_API = process.env.REACT_APP_USE_MOCK_API === "true";
 
 const MOCK_WORLD_ISLANDS_KEY = "solara_mock_world_islands";
 const MOCK_CORE_STATE_KEY = "solara_mock_helium_core_state";
@@ -17,7 +19,7 @@ const BACKEND_TO_FRONTEND_BUILDING = Object.fromEntries(
 );
 
 export const apiClient = axios.create({
-  baseURL: API_URL || "http://localhost:4000",
+  baseURL: API_URL || "",
   timeout: 10000
 });
 
@@ -584,6 +586,7 @@ export async function activateHeliumCore(payload) {
 }
 
 export { API_URL, USE_MOCK_API };
+
 
 
 

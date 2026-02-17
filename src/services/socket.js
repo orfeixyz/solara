@@ -1,6 +1,7 @@
 import { io } from "socket.io-client";
 
-const WS_URL = process.env.REACT_APP_WS_URL || process.env.REACT_APP_API_URL || "http://localhost:4000";
+const DEFAULT_ORIGIN = typeof window !== "undefined" ? window.location.origin : "http://localhost:4000";
+const WS_URL = process.env.REACT_APP_WS_URL || process.env.REACT_APP_API_URL || DEFAULT_ORIGIN;
 
 let socketInstance = null;
 
@@ -34,4 +35,5 @@ export function disconnectSocket() {
 }
 
 export { WS_URL };
+
 
