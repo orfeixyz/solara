@@ -13,7 +13,7 @@ export default function DashboardScreen() {
     heliumCore,
     activateCore,
     canActivateCore,
-
+    contributeToCore,
     pushToast
   } = useGame();
 
@@ -42,9 +42,3 @@ export default function DashboardScreen() {
     </div>
   );
 }
-
-
-
-
-
-
