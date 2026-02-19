@@ -14,7 +14,7 @@ async function createUserWithIsland({ email, username, hashedPassword, bioma }) 
 
     const islandInsert = await client.query(
       `INSERT INTO islands (user_id, grid, energy, water, biomass, time_multiplier)
-       VALUES ($1, $2::jsonb, 220, 220, 220, 1)
+       VALUES ($1, $2::jsonb, 350, 250, 300, 1)
        RETURNING id, user_id, grid, energy, water, biomass, time_multiplier`,
       [user.id, JSON.stringify(createEmptyGrid())]
     );
@@ -79,3 +79,5 @@ module.exports = {
   findByUsernameOrEmail,
   findById
 };
+
+

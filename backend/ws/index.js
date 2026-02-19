@@ -4,7 +4,7 @@ const islandModel = require('../models/islandModel');
 const buildingModel = require('../models/buildingModel');
 const chatModel = require('../models/chatModel');
 const productionLogModel = require('../models/productionLogModel');
-const { computeProductionTick, isAlphaCompleted } = require('../models/gameRules');
+const { computeProductionTick, isCoreReady } = require('../models/gameRules');
 
 const connectedUsers = new Map();
 
@@ -194,19 +194,17 @@ function startProductionTicker(io) {
 
           let tick = computeProductionTick({
             island: lockedIsland,
-            biome: lockedIsland.bioma,
             buildings: buildingRows
           });
 
           let multiplierDowngraded = false;
           let finalMultiplier = lockedIsland.time_multiplier;
 
-          if (lockedIsland.energy < tick.energyCost && lockedIsland.time_multiplier > 1) {
+          if (lockedIsland.energy < tick.consumed.energy && lockedIsland.time_multiplier > 1) {
             multiplierDowngraded = true;
             finalMultiplier = 1;
             tick = computeProductionTick({
               island: { ...lockedIsland, time_multiplier: 1 },
-              biome: lockedIsland.bioma,
               buildings: buildingRows
             });
           }
@@ -222,7 +220,7 @@ function startProductionTicker(io) {
 
           const alphaNow =
             !lockedIsland.alpha_completed &&
-            isAlphaCompleted({
+            isCoreReady({
               island: {
                 ...lockedIsland,
                 ...updatedResources
@@ -312,7 +310,7 @@ function startProductionTicker(io) {
         if (tickResult.alphaNow) {
           const systemMessage = await chatModel.addMessage({
             userId: null,
-            message: `System: island ${tickResult.island.id} completed Nucleo Helios alpha goal.`
+            message: `System: island ${tickResult.island.id} completed Helium Core requirements.`
           });
           io.emit('chat_message', systemMessage);
         }
@@ -330,4 +328,5 @@ module.exports = {
   registerSocketHandlers,
   startProductionTicker
 };
+
 

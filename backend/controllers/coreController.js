@@ -1,4 +1,6 @@
 const { withTransaction, query } = require('../models/db');
+const buildingModel = require('../models/buildingModel');
+const { computeProductionTick, computeEfficiency, hasRequiredLevel3 } = require('../models/gameRules');
 
 function normalizeCoreRow(row) {
   const totals = {
@@ -33,7 +35,32 @@ function normalizeCoreRow(row) {
   };
 }
 
-async function readCoreState() {
+function buildActivationRequirements({ island, buildings }) {
+  const efficiency = Math.round(computeEfficiency(island.energy, island.water, island.biomass));
+  const tick = computeProductionTick({ island, buildings });
+
+  const checks = {
+    min_one_building_level_3: hasRequiredLevel3(buildings),
+    min_efficiency_90: efficiency >= 90,
+    net_production_energy_positive: tick.net.energy > 0,
+    net_production_water_positive: tick.net.water > 0,
+    net_production_biomass_positive: tick.net.biomass > 0
+  };
+
+  return {
+    efficiency,
+    netProductionPerMinute: tick.net,
+    checks,
+    ready:
+      checks.min_one_building_level_3 &&
+      checks.min_efficiency_90 &&
+      checks.net_production_energy_positive &&
+      checks.net_production_water_positive &&
+      checks.net_production_biomass_positive
+  };
+}
+
+async function readCoreState(userId = null) {
   const row = (
     await query(
       `SELECT c.*, u.username AS activated_by_username
@@ -57,7 +84,7 @@ async function readCoreState() {
     )
   ).rows;
 
-  return {
+  const state = {
     ...normalizeCoreRow(row),
     contributions: latestContrib.map((item) => ({
       id: item.id,
@@ -68,11 +95,34 @@ async function readCoreState() {
       createdAt: item.timestamp
     }))
   };
+
+  if (!userId) {
+    return state;
+  }
+
+  const island = (
+    await query(
+      `SELECT id, user_id, energy, water, biomass, time_multiplier
+       FROM islands
+       WHERE user_id = $1`,
+      [userId]
+    )
+  ).rows[0];
+
+  if (!island) {
+    return state;
+  }
+
+  const buildings = await buildingModel.getByIslandId(island.id);
+  return {
+    ...state,
+    activationRequirements: buildActivationRequirements({ island, buildings })
+  };
 }
 
 async function getCoreState(req, res) {
   try {
-    const state = await readCoreState();
+    const state = await readCoreState(req.user?.id || null);
     if (!state) {
       return res.status(404).json({ error: 'core state not found' });
     }
@@ -144,7 +194,7 @@ async function contributeCore(req, res) {
       );
     });
 
-    const state = await readCoreState();
+    const state = await readCoreState(req.user.id);
     return res.json(state);
   } catch (error) {
     const status = error.status || 500;
@@ -172,14 +222,47 @@ async function activateCore(req, res) {
         return;
       }
 
-      const ready =
+      const goalsReady =
         Number(row.total_energy) >= Number(row.goal_energy) &&
         Number(row.total_water) >= Number(row.goal_water) &&
         Number(row.total_biomass) >= Number(row.goal_biomass);
 
-      if (!ready) {
+      if (!goalsReady) {
         const err = new Error('core goals not reached');
         err.status = 409;
+        throw err;
+      }
+
+      const island = (
+        await client.query(
+          `SELECT id, user_id, energy, water, biomass, time_multiplier
+           FROM islands
+           WHERE user_id = $1
+           FOR UPDATE`,
+          [req.user.id]
+        )
+      ).rows[0];
+
+      if (!island) {
+        const err = new Error('island not found');
+        err.status = 404;
+        throw err;
+      }
+
+      const buildings = (
+        await client.query(
+          `SELECT id, island_id, type, level, pos_x, pos_y
+           FROM buildings
+           WHERE island_id = $1`,
+          [island.id]
+        )
+      ).rows;
+
+      const requirements = buildActivationRequirements({ island, buildings });
+      if (!requirements.ready) {
+        const err = new Error('activation requirements not met');
+        err.status = 409;
+        err.requirements = requirements;
         throw err;
       }
 
@@ -194,11 +277,15 @@ async function activateCore(req, res) {
       );
     });
 
-    const state = await readCoreState();
+    const state = await readCoreState(req.user.id);
     return res.json(state);
   } catch (error) {
     const status = error.status || 500;
-    return res.status(status).json({ error: 'failed to activate core', details: error.message });
+    return res.status(status).json({
+      error: 'failed to activate core',
+      details: error.message,
+      requirements: error.requirements || null
+    });
   }
 }
 

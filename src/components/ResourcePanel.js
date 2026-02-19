@@ -22,7 +22,7 @@ function ResourceItem({ label, value, production, icon, highlight }) {
 
 export default function ResourcePanel({ resources, timeMultiplier, onChangeMultiplier }) {
   const totals = resources?.totals || {};
-  const production = resources?.productionPerHour || {};
+  const production = resources?.productionPerMinute || resources?.productionPerHour || {};
   const efficiency = resources?.efficiency ?? 100;
   const imbalance = resources?.imbalance ?? 0;
 
@@ -80,5 +80,6 @@ export default function ResourcePanel({ resources, timeMultiplier, onChangeMulti
     </section>
   );
 }
+
 
 

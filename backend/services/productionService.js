@@ -10,7 +10,7 @@ function toDate(value) {
 }
 
 function computeImbalance(energy, water, biomass) {
-  return Math.round((energy - water + (water - biomass)) / 2);
+  return Math.round((Math.abs(energy - biomass) + Math.abs(biomass - water)) / 2);
 }
 
 function toResourcePayload(island, tick) {
@@ -22,12 +22,17 @@ function toResourcePayload(island, tick) {
       water: island.water,
       biomass: island.biomass
     },
+    productionPerMinute: {
+      energy: tick?.net?.energy ?? 0,
+      water: tick?.net?.water ?? 0,
+      biomass: tick?.net?.biomass ?? 0
+    },
     productionPerHour: {
       energy: tick?.net?.energy ?? 0,
       water: tick?.net?.water ?? 0,
       biomass: tick?.net?.biomass ?? 0
     },
-    efficiency: Math.round(efficiencyValue * 100),
+    efficiency: Math.round(efficiencyValue),
     imbalance: computeImbalance(island.energy, island.water, island.biomass),
     time_multiplier: island.time_multiplier
   };
@@ -69,7 +74,7 @@ function runSingleTick(stateIsland, biome, buildings) {
   });
 
   let finalMultiplier = stateIsland.time_multiplier;
-  if (stateIsland.energy < tick.energyCost && stateIsland.time_multiplier > 1) {
+  if (stateIsland.energy < tick.consumed.energy && stateIsland.time_multiplier > 1) {
     finalMultiplier = 1;
     tick = computeProductionTick({
       island: { ...stateIsland, time_multiplier: 1 },
@@ -200,3 +205,4 @@ module.exports = {
   getIslandResourcesByUser,
   toResourcePayload
 };
+

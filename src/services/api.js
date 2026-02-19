@@ -40,7 +40,7 @@ function normalizeEfficiency(value, fallback = mockResources.efficiency) {
 
 function normalizeResources(payload) {
   const totalsSource = payload?.totals || payload || {};
-  const productionSource = payload?.productionPerHour || payload?.net || payload?.productionPerMinute || {};
+  const productionSource = payload?.productionPerMinute || payload?.productionPerHour || payload?.net || {};
 
   const totals = {
     energy: asNumber(totalsSource.energy, mockResources.totals.energy),
@@ -48,17 +48,18 @@ function normalizeResources(payload) {
     biomass: asNumber(totalsSource.biomass, mockResources.totals.biomass)
   };
 
-  const productionPerHour = {
+  const productionPerMinute = {
     energy: asNumber(productionSource.energy, mockResources.productionPerHour.energy),
     water: asNumber(productionSource.water, mockResources.productionPerHour.water),
     biomass: asNumber(productionSource.biomass, mockResources.productionPerHour.biomass)
   };
 
-  const imbalance = Math.round((totals.energy - totals.water + (totals.water - totals.biomass)) / 2);
+  const imbalance = Math.round((Math.abs(totals.energy - totals.biomass) + Math.abs(totals.biomass - totals.water)) / 2);
 
   return {
     totals,
-    productionPerHour,
+    productionPerMinute,
+    productionPerHour: productionPerMinute,
     efficiency: normalizeEfficiency(payload?.efficiency),
     imbalance: typeof payload?.imbalance === "number" ? payload.imbalance : imbalance
   };
@@ -731,5 +732,8 @@ export async function setResourceMultiplier(multiplier) {
     throw new Error(parseError(error, "Could not update multiplier"));
   }
 }
+
+
+
 
 

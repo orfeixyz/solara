@@ -22,7 +22,7 @@ import {
 
 const GameContext = createContext(null);
 const MAX_UPGRADE_LEVEL = 3;
-const CORE_ACTIVATION_COST = { energy: 120, water: 120, biomass: 120 };
+const CORE_ACTIVATION_COST = { energy: 1200, water: 800, biomass: 1000 };
 
 function mergeResources(current, incoming) {
   const hasFlatTotals =
@@ -36,7 +36,7 @@ function mergeResources(current, incoming) {
     biomass: incoming?.totals?.biomass ?? (hasFlatTotals ? incoming?.biomass : undefined) ?? current?.totals?.biomass ?? 0
   };
 
-  const productionSource = incoming?.productionPerHour || incoming?.net || incoming?.productionPerMinute;
+  const productionSource = incoming?.productionPerMinute || incoming?.productionPerHour || incoming?.net;
   const efficiencyRaw = incoming?.efficiency;
   const efficiency =
     typeof efficiencyRaw === "number"
@@ -46,10 +46,15 @@ function mergeResources(current, incoming) {
   const imbalance =
     typeof incoming?.imbalance === "number"
       ? incoming.imbalance
-      : Math.round((totals.energy - totals.water + (totals.water - totals.biomass)) / 2);
+      : Math.round((Math.abs(totals.energy - totals.biomass) + Math.abs(totals.biomass - totals.water)) / 2);
 
   return {
     totals,
+    productionPerMinute: {
+      energy: productionSource?.energy ?? current?.productionPerHour?.energy ?? 0,
+      water: productionSource?.water ?? current?.productionPerHour?.water ?? 0,
+      biomass: productionSource?.biomass ?? current?.productionPerHour?.biomass ?? 0
+    },
     productionPerHour: {
       energy: productionSource?.energy ?? current?.productionPerHour?.energy ?? 0,
       water: productionSource?.water ?? current?.productionPerHour?.water ?? 0,
@@ -577,7 +582,7 @@ export function GameProvider({ children }) {
       renameIsland,
       activateCore,
       contributeToCore,
-      canActivateCore: !heliumCore?.active && Boolean(heliumCore?.readyToActivate),
+      canActivateCore: !heliumCore?.active && Boolean(heliumCore?.readyToActivate && (heliumCore?.activationRequirements?.ready ?? true)),
       sendChatMessage,
       setTimeMultiplier: changeTimeMultiplier,
       pushToast,
@@ -606,3 +611,7 @@ export function useGame() {
   }
   return context;
 }
+
+
+
+

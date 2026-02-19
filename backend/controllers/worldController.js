@@ -28,7 +28,7 @@ async function getWorld(req, res) {
       ownerName: row.username,
       biomeId: mapBiome(row.bioma),
       score: Number(row.energy) + Number(row.water) + Number(row.biomass),
-      efficiency: Math.round(computeEfficiency(row.energy, row.water, row.biomass) * 100),
+      efficiency: Math.round(computeEfficiency(row.energy, row.water, row.biomass)),
       position: { x: 0, y: 0 },
       time_multiplier: row.time_multiplier
     }));
@@ -42,3 +42,4 @@ async function getWorld(req, res) {
 module.exports = {
   getWorld
 };
+

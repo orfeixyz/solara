@@ -14,6 +14,38 @@ function ResourceCost({ cost = {} }) {
   );
 }
 
+function LevelCard({ data, title }) {
+  return (
+    <div className="building-level-card">
+      <h6>{title}</h6>
+      <p>
+        Production/min: E {data.production.energy} | W {data.production.water} | B {data.production.biomass}
+      </p>
+      <p>
+        Consumption/min: E {data.consumption.energy} | W {data.consumption.water} | B {data.consumption.biomass}
+      </p>
+      <p>Cost</p>
+      <ResourceCost cost={data.cost} />
+    </div>
+  );
+}
+
+function LevelBreakdown({ buildingId, currentLevel = 0 }) {
+  const levels = [1, 2, 3]
+    .map((level) => getBuildingLevelData(buildingId, level))
+    .filter(Boolean);
+
+  return (
+    <div className="building-level-grid">
+      {levels.map((levelData, idx) => {
+        const level = idx + 1;
+        const marker = currentLevel >= level ? "(Current/Unlocked)" : "(Locked)";
+        return <LevelCard key={level} data={levelData} title={`Level ${level} ${marker}`} />;
+      })}
+    </div>
+  );
+}
+
 export default function BuildingModal({ open, cell, onClose, onBuild, onUpgrade, onDestroy }) {
   const [selected, setSelected] = useState(BUILDING_OPTIONS[0]?.id || "centro_solar");
 
@@ -82,15 +114,8 @@ export default function BuildingModal({ open, cell, onClose, onBuild, onUpgrade,
             <ImageLoader src={currentData.image} alt={currentData.name} className="building-image" />
             <h4>{currentData.name}</h4>
             <p>{currentData.description}</p>
-            <p>Build level: 1</p>
-            <p>
-              Production/min: E {currentData.production.energy} | W {currentData.production.water} | B {currentData.production.biomass}
-            </p>
-            <p>
-              Consumption/min: E {currentData.consumption.energy} | W {currentData.consumption.water} | B {currentData.consumption.biomass}
-            </p>
-            <h5>Construction cost</h5>
-            <ResourceCost cost={currentData.cost} />
+            <h5>All levels</h5>
+            <LevelBreakdown buildingId={selected} />
             {blocked && <p className="error-text">Blocked terrain cell.</p>}
           </div>
         )}
@@ -101,9 +126,11 @@ export default function BuildingModal({ open, cell, onClose, onBuild, onUpgrade,
             <h4>{currentPlaced.name}</h4>
             <p>{currentPlaced.description}</p>
             <p>Current level: {Math.max(1, cell.level || 1)}</p>
+            <h5>All levels</h5>
+            <LevelBreakdown buildingId={cell.buildingId} currentLevel={Math.max(1, cell.level || 1)} />
             {nextUpgrade ? (
               <>
-                <h5>Upgrade to level {Math.max(1, cell.level || 1) + 1}</h5>
+                <h5>Next upgrade cost (Level {Math.max(1, cell.level || 1) + 1})</h5>
                 <ResourceCost cost={nextUpgrade.cost} />
               </>
             ) : (
@@ -142,4 +169,3 @@ export default function BuildingModal({ open, cell, onClose, onBuild, onUpgrade,
     </div>
   );
 }
-
