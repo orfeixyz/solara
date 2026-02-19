@@ -29,7 +29,7 @@ export default function DashboardScreen() {
         heliumCore={heliumCore}
         onActivateCore={activateCore}
         canActivateCore={canActivateCore}
-        onContributeCore={contributeToCore}
+        onContributeCore={contributeToCore || (async () => false)}
         onSelectIsland={(island) => {
           const isMine = String(island.ownerId) === String(user?.id) || island.ownerName === "You";
           if (!isMine) {
@@ -42,6 +42,7 @@ export default function DashboardScreen() {
     </div>
   );
 }
+
 
 
 
