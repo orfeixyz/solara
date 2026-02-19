@@ -1040,3 +1040,42 @@ h4,
   color: #345742;
   font-weight: 600;
 }
+
+.level-pager {
+  border: 1px solid rgba(122, 146, 82, 0.45);
+  border-radius: 10px;
+  padding: 0.45rem;
+  background: rgba(252, 247, 233, 0.9);
+}
+
+.level-pager-head {
+  display: grid;
+  grid-template-columns: 64px 1fr 64px;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.level-pager-head strong {
+  text-align: center;
+}
+
+.level-tag {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.helium-core-button {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0;
+}
+
+.core-controls-panel {
+  margin-top: 0.35rem;
+  border: 1px solid rgba(122, 146, 82, 0.5);
+  background: rgba(251, 247, 235, 0.92);
+  border-radius: 10px;
+  padding: 0.45rem;
+}

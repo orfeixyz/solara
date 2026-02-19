@@ -13,6 +13,7 @@ export default function WorldMap({
   canActivateCore
 }) {
   const [contrib, setContrib] = useState({ energy: 0, water: 0, biomass: 0 });
+  const [corePanelOpen, setCorePanelOpen] = useState(false);
 
   const decorated = useMemo(() => {
     const ringRadius = 32;
@@ -52,51 +53,61 @@ export default function WorldMap({
         <ImageLoader src={imageMap.backgrounds.sky} alt="World sky" className="world-map-bg" />
 
         <div className="helium-core" title="Helium Core - shared world element">
-          <ImageLoader src={coreImage} alt="Helium Core" className="helium-core-image" />
+          <button
+            type="button"
+            className="helium-core-button"
+            onClick={() => setCorePanelOpen((prev) => !prev)}
+            aria-expanded={corePanelOpen}
+          >
+            <ImageLoader src={coreImage} alt="Helium Core" className="helium-core-image" />
+          </button>
+
           <span className="helium-core-label">
             {heliumCore?.active
               ? `Helium Core Active (${heliumCore?.activatedBy || "Player"})`
-              : "Helium Core Inactive"}
+              : "Helium Core Inactive (click core)"}
           </span>
 
           <div className="core-progress">
             <small>E {totals.energy}/{goals.energy} | W {totals.water}/{goals.water} | B {totals.biomass}/{goals.biomass}</small>
           </div>
 
-          {!heliumCore?.active && (
-            <div className="core-controls">
-              <input
-                type="number"
-                min="0"
-                value={contrib.energy}
-                onChange={(event) => setContrib((prev) => ({ ...prev, energy: event.target.value }))}
-                placeholder="Energy"
-              />
-              <input
-                type="number"
-                min="0"
-                value={contrib.water}
-                onChange={(event) => setContrib((prev) => ({ ...prev, water: event.target.value }))}
-                placeholder="Water"
-              />
-              <input
-                type="number"
-                min="0"
-                value={contrib.biomass}
-                onChange={(event) => setContrib((prev) => ({ ...prev, biomass: event.target.value }))}
-                placeholder="Biomass"
-              />
-              <button type="button" className="ghost-btn" onClick={submitContribution}>
-                Contribute
-              </button>
-              <button
-                type="button"
-                className="primary-btn core-activate-btn"
-                onClick={onActivateCore}
-                disabled={!canActivateCore}
-              >
-                Activate Core
-              </button>
+          {corePanelOpen && !heliumCore?.active && (
+            <div className="core-controls-panel">
+              <div className="core-controls">
+                <input
+                  type="number"
+                  min="0"
+                  value={contrib.energy}
+                  onChange={(event) => setContrib((prev) => ({ ...prev, energy: event.target.value }))}
+                  placeholder="Energy"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  value={contrib.water}
+                  onChange={(event) => setContrib((prev) => ({ ...prev, water: event.target.value }))}
+                  placeholder="Water"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  value={contrib.biomass}
+                  onChange={(event) => setContrib((prev) => ({ ...prev, biomass: event.target.value }))}
+                  placeholder="Biomass"
+                />
+                <button type="button" className="ghost-btn" onClick={submitContribution}>
+                  Contribute
+                </button>
+                <button
+                  type="button"
+                  className="primary-btn core-activate-btn"
+                  onClick={onActivateCore}
+                  disabled={!canActivateCore}
+                >
+                  Activate Core
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -120,4 +131,3 @@ export default function WorldMap({
     </section>
   );
 }
-

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { BUILDING_OPTIONS, getBuildingLevelData } from "../data/buildings";
 import ImageLoader from "./ImageLoader";
 
@@ -14,34 +14,40 @@ function ResourceCost({ cost = {} }) {
   );
 }
 
-function LevelCard({ data, title }) {
+function LevelPager({ buildingId, currentLevel = 0 }) {
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [buildingId]);
+
+  const levelData = getBuildingLevelData(buildingId, page);
+  if (!levelData) {
+    return null;
+  }
+
+  const isCurrent = currentLevel >= page;
+
   return (
-    <div className="building-level-card">
-      <h6>{title}</h6>
+    <div className="level-pager">
+      <div className="level-pager-head">
+        <button type="button" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={page === 1}>
+          Prev
+        </button>
+        <strong>Level {page}</strong>
+        <button type="button" onClick={() => setPage((prev) => Math.min(3, prev + 1))} disabled={page === 3}>
+          Next
+        </button>
+      </div>
+      <p className="level-tag">{isCurrent ? "Current/Unlocked" : "Locked"}</p>
       <p>
-        Production/min: E {data.production.energy} | W {data.production.water} | B {data.production.biomass}
+        Production/min: E {levelData.production.energy} | W {levelData.production.water} | B {levelData.production.biomass}
       </p>
       <p>
-        Consumption/min: E {data.consumption.energy} | W {data.consumption.water} | B {data.consumption.biomass}
+        Consumption/min: E {levelData.consumption.energy} | W {levelData.consumption.water} | B {levelData.consumption.biomass}
       </p>
       <p>Cost</p>
-      <ResourceCost cost={data.cost} />
-    </div>
-  );
-}
-
-function LevelBreakdown({ buildingId, currentLevel = 0 }) {
-  const levels = [1, 2, 3]
-    .map((level) => getBuildingLevelData(buildingId, level))
-    .filter(Boolean);
-
-  return (
-    <div className="building-level-grid">
-      {levels.map((levelData, idx) => {
-        const level = idx + 1;
-        const marker = currentLevel >= level ? "(Current/Unlocked)" : "(Locked)";
-        return <LevelCard key={level} data={levelData} title={`Level ${level} ${marker}`} />;
-      })}
+      <ResourceCost cost={levelData.cost} />
     </div>
   );
 }
@@ -114,8 +120,8 @@ export default function BuildingModal({ open, cell, onClose, onBuild, onUpgrade,
             <ImageLoader src={currentData.image} alt={currentData.name} className="building-image" />
             <h4>{currentData.name}</h4>
             <p>{currentData.description}</p>
-            <h5>All levels</h5>
-            <LevelBreakdown buildingId={selected} />
+            <h5>Levels</h5>
+            <LevelPager buildingId={selected} />
             {blocked && <p className="error-text">Blocked terrain cell.</p>}
           </div>
         )}
@@ -126,8 +132,8 @@ export default function BuildingModal({ open, cell, onClose, onBuild, onUpgrade,
             <h4>{currentPlaced.name}</h4>
             <p>{currentPlaced.description}</p>
             <p>Current level: {Math.max(1, cell.level || 1)}</p>
-            <h5>All levels</h5>
-            <LevelBreakdown buildingId={cell.buildingId} currentLevel={Math.max(1, cell.level || 1)} />
+            <h5>Levels</h5>
+            <LevelPager buildingId={cell.buildingId} currentLevel={Math.max(1, cell.level || 1)} />
             {nextUpgrade ? (
               <>
                 <h5>Next upgrade cost (Level {Math.max(1, cell.level || 1) + 1})</h5>
@@ -156,11 +162,7 @@ export default function BuildingModal({ open, cell, onClose, onBuild, onUpgrade,
             </button>
           )}
           {canDestroy && (
-            <button
-              type="button"
-              className="danger-btn"
-              onClick={() => onDestroy(cell)}
-            >
+            <button type="button" className="danger-btn" onClick={() => onDestroy(cell)}>
               Destroy Building
             </button>
           )}

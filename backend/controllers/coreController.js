@@ -179,12 +179,12 @@ async function contributeCore(req, res) {
 
       await client.query(
         `UPDATE helium_core_state
-         SET total_energy = total_energy + $2,
-             total_water = total_water + $3,
-             total_biomass = total_biomass + $4,
+         SET total_energy = total_energy + $1,
+             total_water = total_water + $2,
+             total_biomass = total_biomass + $3,
              updated_at = NOW()
          WHERE id = 1`,
-        [1, energy, water, biomass]
+        [energy, water, biomass]
       );
 
       await client.query(
@@ -269,11 +269,11 @@ async function activateCore(req, res) {
       await client.query(
         `UPDATE helium_core_state
          SET active = TRUE,
-             activated_by = $2,
+             activated_by = $1,
              activated_at = NOW(),
              updated_at = NOW()
          WHERE id = 1`,
-        [1, req.user.id]
+        [req.user.id]
       );
     });
 
@@ -294,3 +294,6 @@ module.exports = {
   contributeCore,
   activateCore
 };
+
+
+
