@@ -61,6 +61,8 @@ async function buildOrUpgrade(req, res) {
       return res.status(400).json({ error: 'unknown building type' });
     }
 
+    await advanceIslandToNow(parsedIslandId);
+
     const result = await withTransaction(async (client) => {
       const islandRes = await client.query(
         `SELECT i.id, i.user_id, i.grid, i.energy, i.water, i.biomass, i.time_multiplier,
@@ -238,6 +240,8 @@ async function destroyBuilding(req, res) {
       return res.status(400).json({ error: 'grid coordinates must be within 0..4' });
     }
 
+    await advanceIslandToNow(parsedIslandId);
+
     const result = await withTransaction(async (client) => {
       const islandRes = await client.query(
         `SELECT id, user_id, grid, energy, water, biomass, time_multiplier
@@ -329,3 +333,4 @@ module.exports = {
   buildOrUpgrade,
   destroyBuilding
 };
+

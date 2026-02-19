@@ -6,14 +6,19 @@ import { mockIslandDetails, mockIslands, mockResources } from "../data/mockData"
 import {
   activateHeliumCore,
   buildOrUpgrade,
+  contributeHeliumCore,
   destroyBuilding,
+  getChatMessages,
   getHeliumCoreState,
   getIslandById,
+  getPresence,
   getResourceTotals,
   getWorldIslands,
-  renameIsland as renameIslandApi
+  pingPresence,
+  postChatMessage,
+  renameIsland as renameIslandApi,
+  setResourceMultiplier
 } from "../services/api";
-import { connectSocket, disconnectSocket, getSocket } from "../services/socket";
 
 const GameContext = createContext(null);
 const MAX_UPGRADE_LEVEL = 3;
@@ -31,7 +36,7 @@ function mergeResources(current, incoming) {
     biomass: incoming?.totals?.biomass ?? (hasFlatTotals ? incoming?.biomass : undefined) ?? current?.totals?.biomass ?? 0
   };
 
-  const productionSource = incoming?.productionPerHour || incoming?.net;
+  const productionSource = incoming?.productionPerHour || incoming?.net || incoming?.productionPerMinute;
   const efficiencyRaw = incoming?.efficiency;
   const efficiency =
     typeof efficiencyRaw === "number"
@@ -51,7 +56,8 @@ function mergeResources(current, incoming) {
       biomass: productionSource?.biomass ?? current?.productionPerHour?.biomass ?? 0
     },
     efficiency,
-    imbalance
+    imbalance,
+    time_multiplier: incoming?.time_multiplier ?? current?.time_multiplier ?? 1
   };
 }
 
@@ -84,7 +90,7 @@ export function GameProvider({ children }) {
     if (!island) {
       return false;
     }
-    return island.ownerId === user?.id || island.ownerName === "You";
+    return String(island.ownerId) === String(user?.id) || island.ownerName === user?.username || island.ownerName === "You";
   };
 
   const canAffordCost = (cost) => {
@@ -126,19 +132,9 @@ export function GameProvider({ children }) {
       return decorated;
     }
 
-    const fallback = mockIslands.map((island, index) => {
-      if (index !== 0) {
-        return decorateIsland(island);
-      }
-
-      return decorateIsland({
-        ...island,
-        id: String(user?.island_id || island.id),
-        ownerId: user?.id || island.ownerId,
-        ownerName: user?.username || "You",
-        name: user?.username ? `${user.username} Island` : island.name
-      });
-    });
+    const fallback = mockIslands
+      .filter((island) => String(island.ownerId) === String(user?.id))
+      .map(decorateIsland);
 
     setWorldIslands(fallback);
     return fallback;
@@ -148,6 +144,9 @@ export function GameProvider({ children }) {
     try {
       const remote = await getResourceTotals();
       setResources((prev) => mergeResources(prev, remote));
+      if (typeof remote?.time_multiplier === "number") {
+        setTimeMultiplier(remote.time_multiplier);
+      }
       syncMyIslandEfficiency(remote?.efficiency);
     } catch (_error) {
       setResources((prev) => mergeResources(prev, mockResources));
@@ -163,6 +162,34 @@ export function GameProvider({ children }) {
       return remote;
     } catch (_error) {
       return heliumCore;
+    }
+  };
+
+  const fetchChat = async () => {
+    try {
+      const remote = await getChatMessages(100);
+      if (Array.isArray(remote?.messages)) {
+        setChatMessages(remote.messages);
+      }
+    } catch (_error) {
+      // keep current chat state
+    }
+  };
+
+  const fetchPresence = async () => {
+    try {
+      const remote = await getPresence();
+      setConnectedUsers(Array.isArray(remote?.users) ? remote.users : []);
+    } catch (_error) {
+      setConnectedUsers([]);
+    }
+  };
+
+  const sendPresencePing = async () => {
+    try {
+      await pingPresence();
+    } catch (_error) {
+      // ignore ping errors
     }
   };
 
@@ -283,6 +310,7 @@ export function GameProvider({ children }) {
       if (response?.island) {
         setIslandCache((prev) => ({ ...prev, [islandId]: decorateIsland(response.island) }));
       }
+      await fetchResources();
       return true;
     } catch (_error) {
       pushToast("error", "Build request failed. Local simulation kept.");
@@ -333,6 +361,7 @@ export function GameProvider({ children }) {
       if (response?.island) {
         setIslandCache((prev) => ({ ...prev, [islandId]: decorateIsland(response.island) }));
       }
+      await fetchResources();
       pushToast("success", `Building upgraded to level ${nextLevel}.`);
       return true;
     } catch (_error) {
@@ -368,6 +397,7 @@ export function GameProvider({ children }) {
       if (response?.island) {
         setIslandCache((prev) => ({ ...prev, [islandId]: decorateIsland(response.island) }));
       }
+      await fetchResources();
       pushToast("success", "Building destroyed. Cell is buildable again.");
       return true;
     } catch (_error) {
@@ -414,207 +444,114 @@ export function GameProvider({ children }) {
     }
   };
 
+  const contributeToCore = async (payload) => {
+    const energy = Math.max(0, Number(payload?.energy || 0));
+    const water = Math.max(0, Number(payload?.water || 0));
+    const biomass = Math.max(0, Number(payload?.biomass || 0));
+
+    if (!energy && !water && !biomass) {
+      pushToast("warning", "Enter at least one resource amount.");
+      return false;
+    }
+
+    if (!canAffordCost({ energy, water, biomass })) {
+      pushToast("error", "Not enough resources for this contribution.");
+      return false;
+    }
+
+    try {
+      const next = await contributeHeliumCore({ energy, water, biomass });
+      setHeliumCore(next);
+      await fetchResources();
+      pushToast("success", "Resources contributed to Helium Core.");
+      return true;
+    } catch (error) {
+      pushToast("error", error.message || "Core contribution failed.");
+      return false;
+    }
+  };
+
   const activateCore = async () => {
     if (heliumCore?.active) {
       pushToast("warning", "Helium Core is already active.");
       return false;
     }
 
-    if (!canAffordCost(CORE_ACTIVATION_COST)) {
-      pushToast("error", "Not enough resources to activate Helium Core.");
+    if (!heliumCore?.readyToActivate) {
+      pushToast("warning", "Core goals are not reached yet.");
       return false;
     }
 
-    spendResources(CORE_ACTIVATION_COST);
-
     try {
-      const response = await activateHeliumCore({
-        playerId: user?.id,
-        username: user?.username,
-        cost: CORE_ACTIVATION_COST
-      });
+      const response = await activateHeliumCore({ playerId: user?.id, username: user?.username });
       if (response) {
         setHeliumCore(response);
       }
       pushToast("success", "Helium Core activated. You won the game.");
       return true;
-    } catch (_error) {
-      pushToast("error", "Core activation failed.");
+    } catch (error) {
+      pushToast("error", error.message || "Core activation failed.");
       return false;
     }
   };
 
-  const sendChatMessage = (text) => {
+  const sendChatMessage = async (text) => {
     const content = text?.trim();
     if (!content) {
       return;
     }
 
-    const socket = getSocket();
-    if (socket?.connected) {
-      socket.emit("chat_message", { message: content });
+    try {
+      await postChatMessage({ message: content, username: user?.username });
+      await fetchChat();
+    } catch (error) {
+      pushToast("error", error.message || "Could not send chat message.");
+    }
+  };
+
+  const changeTimeMultiplier = async (next) => {
+    const multiplier = Number(next);
+    if (![1, 2, 5].includes(multiplier)) {
+      return;
     }
 
-    setChatMessages((prev) => [
-      ...prev,
-      {
-        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        user: user?.username || "You",
-        message: content,
-        type: "player",
-        createdAt: new Date().toISOString()
-      }
-    ]);
+    setTimeMultiplier(multiplier);
+    try {
+      await setResourceMultiplier(multiplier);
+      await fetchResources();
+    } catch (error) {
+      pushToast("error", error.message || "Could not change multiplier.");
+    }
   };
 
   useEffect(() => {
     if (!token) {
-      disconnectSocket();
       setConnectedUsers([]);
+      setChatMessages([]);
       return;
     }
 
-    const socket = connectSocket(token);
+    fetchResources();
+    fetchWorld();
+    fetchCore();
+    fetchChat();
+    fetchPresence();
+    sendPresencePing();
 
-    socket.on("connect", () => {
-      pushToast("success", "Realtime link active.");
-      fetchResources();
-      fetchWorld();
-      fetchCore();
-      if (currentIslandRef.current) {
-        fetchIsland(currentIslandRef.current);
-      }
-    });
-
-    socket.on("player_joined", (payload) => {
-      setConnectedUsers((prev) => [...new Set([...prev, payload?.username || payload?.id || "Player"])]);
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: `sys-${Date.now()}`,
-          user: "System",
-          message: `${payload?.username || "A player"} joined`,
-          type: "system",
-          createdAt: new Date().toISOString()
-        }
-      ]);
-      fetchWorld();
-    });
-
-    socket.on("player_left", (payload) => {
-      setConnectedUsers((prev) => prev.filter((name) => name !== payload?.username));
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: `sys-${Date.now()}`,
-          user: "System",
-          message: `${payload?.username || "A player"} left`,
-          type: "system",
-          createdAt: new Date().toISOString()
-        }
-      ]);
-    });
-
-    socket.on("resource_update", (payload) => {
-      setResources((prev) => mergeResources(prev, payload));
-      if (typeof payload?.time_multiplier === "number") {
-        setTimeMultiplier(payload.time_multiplier);
-      }
-      syncMyIslandEfficiency(payload?.efficiency);
-    });
-
-    socket.on("tick_update", (payload) => {
-      setResources((prev) => mergeResources(prev, payload?.resources || payload));
-      if (typeof payload?.time_multiplier === "number") {
-        setTimeMultiplier(payload.time_multiplier);
-      }
-      syncMyIslandEfficiency(payload?.resources?.efficiency ?? payload?.efficiency);
-    });
-
-    socket.on("building_update", (payload) => {
-      if (!payload?.islandId || !payload?.grid) {
-        return;
-      }
-      setIslandCache((prev) => ({
-        ...prev,
-        [payload.islandId]: decorateIsland({
-          ...(prev[payload.islandId] || mockIslandDetails(payload.islandId)),
-          ...payload,
-          grid: payload.grid
-        })
-      }));
-    });
-
-    socket.on("chat_message", (payload) => {
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: payload?.id || `chat-${Date.now()}`,
-          user: payload?.user || payload?.username || "Player",
-          message: payload?.message || "",
-          type: payload?.type || "player",
-          createdAt: payload?.createdAt || new Date().toISOString()
-        }
-      ]);
-    });
-
-    socket.io.on("reconnect", () => {
-      pushToast("success", "Connection restored.");
-      fetchResources();
-      fetchWorld();
-      fetchCore();
-      if (currentIslandRef.current) {
-        fetchIsland(currentIslandRef.current);
-      }
-    });
-
-    return () => {
-      socket.off("connect");
-      socket.off("player_joined");
-      socket.off("player_left");
-      socket.off("resource_update");
-      socket.off("building_update");
-      socket.off("chat_message");
-      socket.off("tick_update");
-      socket.io.off("reconnect");
-    };
-  }, [token]);
-
-  useEffect(() => {
-    if (token) {
-      fetchResources();
-      fetchWorld();
-      fetchCore();
-    }
-  }, [token]);
-
-  useEffect(() => {
-    if (!token) {
-      return;
-    }
-
-    const socket = getSocket();
-    if (socket?.connected) {
-      socket.emit("set_time_multiplier", { multiplier: timeMultiplier });
-    }
-  }, [token, timeMultiplier]);
-
-  useEffect(() => {
-    if (!token) {
-      return;
-    }
-
-    const resourceTimer = setInterval(() => {
-      fetchResources();
-    }, 15000);
-
-    const worldTimer = setInterval(() => {
-      fetchWorld();
-    }, 30000);
+    const resourceTimer = setInterval(fetchResources, 15000);
+    const worldTimer = setInterval(fetchWorld, 30000);
+    const coreTimer = setInterval(fetchCore, 10000);
+    const chatTimer = setInterval(fetchChat, 5000);
+    const presenceTimer = setInterval(fetchPresence, 10000);
+    const presencePingTimer = setInterval(sendPresencePing, 20000);
 
     return () => {
       clearInterval(resourceTimer);
       clearInterval(worldTimer);
+      clearInterval(coreTimer);
+      clearInterval(chatTimer);
+      clearInterval(presenceTimer);
+      clearInterval(presencePingTimer);
     };
   }, [token]);
 
@@ -639,9 +576,10 @@ export function GameProvider({ children }) {
       destroyAtCell,
       renameIsland,
       activateCore,
-      canActivateCore: !heliumCore?.active && canAffordCost(CORE_ACTIVATION_COST),
+      contributeToCore,
+      canActivateCore: !heliumCore?.active && Boolean(heliumCore?.readyToActivate),
       sendChatMessage,
-      setTimeMultiplier,
+      setTimeMultiplier: changeTimeMultiplier,
       pushToast,
       isIslandOwnedByMe
     }),
@@ -668,5 +606,3 @@ export function useGame() {
   }
   return context;
 }
-
-

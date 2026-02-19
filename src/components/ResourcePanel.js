@@ -14,7 +14,7 @@ function ResourceItem({ label, value, production, icon, highlight }) {
       <div>
         <strong>{label}</strong>
         <p>{animatedValue} total</p>
-        <small>+{animatedProduction}/h</small>
+        <small>+{animatedProduction}/min</small>
       </div>
     </div>
   );
@@ -80,3 +80,5 @@ export default function ResourcePanel({ resources, timeMultiplier, onChangeMulti
     </section>
   );
 }
+
+

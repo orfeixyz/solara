@@ -40,7 +40,7 @@ function normalizeEfficiency(value, fallback = mockResources.efficiency) {
 
 function normalizeResources(payload) {
   const totalsSource = payload?.totals || payload || {};
-  const productionSource = payload?.productionPerHour || payload?.net || {};
+  const productionSource = payload?.productionPerHour || payload?.net || payload?.productionPerMinute || {};
 
   const totals = {
     energy: asNumber(totalsSource.energy, mockResources.totals.energy),
@@ -387,7 +387,7 @@ export async function getIslandById(islandId) {
     if (data?.island) {
       const base = mockIslandDetails(String(islandId));
       const island = data.island;
-      const resources = normalizeResources(island);
+      const resources = normalizeResources(data?.resources || island);
 
       return {
         ...base,
@@ -505,7 +505,7 @@ export async function renameIsland(payload) {
   }
 
   try {
-    const { data } = await apiClient.patch(`/island/${payload?.islandId}/name`, {
+    const { data } = await apiClient.patch(`/api/island/${payload?.islandId}/name`, {
       name: payload?.name
     });
     return data;
@@ -575,7 +575,7 @@ export async function getWorldIslands() {
   }
 
   try {
-    const { data } = await apiClient.get("/world");
+    const { data } = await apiClient.get("/api/world");
     return data;
   } catch (_error) {
     return null;
@@ -592,7 +592,7 @@ export async function getHeliumCoreState() {
   }
 
   try {
-    const { data } = await apiClient.get("/core");
+    const { data } = await apiClient.get("/api/core");
     return data;
   } catch (error) {
     throw new Error(parseError(error, "Could not fetch Helium Core state"));
@@ -622,7 +622,7 @@ export async function activateHeliumCore(payload) {
   }
 
   try {
-    const { data } = await apiClient.post("/core/activate", payload);
+    const { data } = await apiClient.post("/api/core/activate", payload);
     return data;
   } catch (error) {
     throw new Error(parseError(error, "Activate core failed"));
@@ -635,5 +635,101 @@ export { API_URL, USE_MOCK_API };
 
 
 
+
+
+
+export async function contributeHeliumCore(payload) {
+  if (USE_MOCK_API) {
+    const current = readMockCoreState();
+    return {
+      ...current,
+      totals: {
+        energy: Number(payload?.energy || 0),
+        water: Number(payload?.water || 0),
+        biomass: Number(payload?.biomass || 0)
+      }
+    };
+  }
+
+  try {
+    const { data } = await apiClient.post("/api/core/contribute", payload);
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error, "Core contribution failed"));
+  }
+}
+
+export async function getChatMessages(limit = 80) {
+  if (USE_MOCK_API) {
+    return { messages: [] };
+  }
+
+  try {
+    const { data } = await apiClient.get(`/api/chat?limit=${Math.max(1, Math.min(Number(limit) || 80, 200))}`);
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error, "Could not fetch chat"));
+  }
+}
+
+export async function postChatMessage(payload) {
+  if (USE_MOCK_API) {
+    return {
+      message: {
+        id: `${Date.now()}`,
+        user: payload?.username || "You",
+        message: payload?.message || "",
+        createdAt: new Date().toISOString(),
+        type: "player"
+      }
+    };
+  }
+
+  try {
+    const { data } = await apiClient.post("/api/chat", payload);
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error, "Could not send chat message"));
+  }
+}
+
+export async function pingPresence() {
+  if (USE_MOCK_API) {
+    return { ok: true };
+  }
+
+  try {
+    const { data } = await apiClient.post("/api/presence/ping", {});
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error, "Could not update presence"));
+  }
+}
+
+export async function getPresence() {
+  if (USE_MOCK_API) {
+    return { users: [] };
+  }
+
+  try {
+    const { data } = await apiClient.get("/api/presence");
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error, "Could not fetch online users"));
+  }
+}
+
+export async function setResourceMultiplier(multiplier) {
+  if (USE_MOCK_API) {
+    return { ok: true, time_multiplier: multiplier };
+  }
+
+  try {
+    const { data } = await apiClient.post("/api/resources/multiplier", { multiplier });
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error, "Could not update multiplier"));
+  }
+}
 
 

@@ -1013,3 +1013,30 @@ h4,
   gap: 0.3rem;
   align-items: center;
 }
+
+.core-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 80px));
+  gap: 0.3rem;
+  align-items: center;
+  justify-items: stretch;
+  margin-top: 0.35rem;
+}
+
+.core-controls input {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(122, 146, 82, 0.45);
+  padding: 0.2rem 0.32rem;
+  font-size: 0.72rem;
+}
+
+.core-controls .ghost-btn,
+.core-controls .core-activate-btn {
+  grid-column: span 3;
+}
+
+.core-progress small {
+  color: #345742;
+  font-weight: 600;
+}

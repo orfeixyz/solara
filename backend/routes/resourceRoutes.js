@@ -5,5 +5,6 @@ const authMiddleware = require('../middleware/auth');
 const router = express.Router();
 
 router.get('/', authMiddleware, resourceController.getResources);
+router.post('/multiplier', authMiddleware, resourceController.setTimeMultiplier);
 
 module.exports = router;

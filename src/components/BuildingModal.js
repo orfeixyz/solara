@@ -84,10 +84,10 @@ export default function BuildingModal({ open, cell, onClose, onBuild, onUpgrade,
             <p>{currentData.description}</p>
             <p>Build level: 1</p>
             <p>
-              Production/h: E {currentData.production.energy} | W {currentData.production.water} | B {currentData.production.biomass}
+              Production/min: E {currentData.production.energy} | W {currentData.production.water} | B {currentData.production.biomass}
             </p>
             <p>
-              Consumption/h: E {currentData.consumption.energy} | W {currentData.consumption.water} | B {currentData.consumption.biomass}
+              Consumption/min: E {currentData.consumption.energy} | W {currentData.consumption.water} | B {currentData.consumption.biomass}
             </p>
             <h5>Construction cost</h5>
             <ResourceCost cost={currentData.cost} />
@@ -142,3 +142,4 @@ export default function BuildingModal({ open, cell, onClose, onBuild, onUpgrade,
     </div>
   );
 }
+

@@ -11,6 +11,9 @@ const islandRoutes = require('./routes/islandRoutes');
 const buildRoutes = require('./routes/buildRoutes');
 const resourceRoutes = require('./routes/resourceRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const worldRoutes = require('./routes/worldRoutes');
+const socialRoutes = require('./routes/socialRoutes');
+const coreRoutes = require('./routes/coreRoutes');
 const authMiddleware = require('./middleware/auth');
 const authController = require('./controllers/authController');
 const islandController = require('./controllers/islandController');
@@ -58,6 +61,9 @@ function createApp(options = {}) {
   app.use('/api/island', islandRoutes);
   app.use('/api/build', buildRoutes);
   app.use('/api/resources', resourceRoutes);
+  app.use('/api/world', worldRoutes);
+  app.use('/api', socialRoutes);
+  app.use('/api/core', coreRoutes);
 
   app.post('/register', authController.register);
   app.post('/login', authController.login);
@@ -103,3 +109,4 @@ module.exports = {
   createApp,
   startServer
 };
+

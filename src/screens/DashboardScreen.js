@@ -13,7 +13,7 @@ export default function DashboardScreen() {
     heliumCore,
     activateCore,
     canActivateCore,
-    CORE_ACTIVATION_COST,
+
     pushToast
   } = useGame();
 
@@ -29,9 +29,9 @@ export default function DashboardScreen() {
         heliumCore={heliumCore}
         onActivateCore={activateCore}
         canActivateCore={canActivateCore}
-        coreActivationCost={CORE_ACTIVATION_COST}
+        onContributeCore={contributeToCore}
         onSelectIsland={(island) => {
-          const isMine = island.ownerId === user?.id || island.ownerName === "You";
+          const isMine = String(island.ownerId) === String(user?.id) || island.ownerName === "You";
           if (!isMine) {
             pushToast("warning", "You can only enter your own island.");
             return;
@@ -42,3 +42,5 @@ export default function DashboardScreen() {
     </div>
   );
 }
+
+
