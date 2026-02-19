@@ -10,6 +10,8 @@ export default function WorldMap({
   heliumCore,
   onActivateCore,
   onContributeCore,
+  onRequestRestart,
+  onAcceptRestart,
   canActivateCore
 }) {
   const [contrib, setContrib] = useState({ energy: 0, water: 0, biomass: 0 });
@@ -34,6 +36,8 @@ export default function WorldMap({
   const coreImage = heliumCore?.active ? imageMap.world.heliumCoreActive : imageMap.world.heliumCoreInactive;
   const totals = heliumCore?.totals || { energy: 0, water: 0, biomass: 0 };
   const goals = heliumCore?.goals || { energy: 0, water: 0, biomass: 0 };
+  const restart = heliumCore?.restart || { requested: false, pendingUsers: [], acceptedUserIds: [] };
+  const myAccepted = restart.acceptedUserIds?.includes(Number(currentPlayerId));
 
   const submitContribution = async () => {
     const ok = await onContributeCore?.({
@@ -72,42 +76,71 @@ export default function WorldMap({
             <small>E {totals.energy}/{goals.energy} | W {totals.water}/{goals.water} | B {totals.biomass}/{goals.biomass}</small>
           </div>
 
-          {corePanelOpen && !heliumCore?.active && (
+          {corePanelOpen && (
             <div className="core-controls-panel">
-              <div className="core-controls">
-                <input
-                  type="number"
-                  min="0"
-                  value={contrib.energy}
-                  onChange={(event) => setContrib((prev) => ({ ...prev, energy: event.target.value }))}
-                  placeholder="Energy"
-                />
-                <input
-                  type="number"
-                  min="0"
-                  value={contrib.water}
-                  onChange={(event) => setContrib((prev) => ({ ...prev, water: event.target.value }))}
-                  placeholder="Water"
-                />
-                <input
-                  type="number"
-                  min="0"
-                  value={contrib.biomass}
-                  onChange={(event) => setContrib((prev) => ({ ...prev, biomass: event.target.value }))}
-                  placeholder="Biomass"
-                />
-                <button type="button" className="ghost-btn" onClick={submitContribution}>
-                  Contribute
-                </button>
-                <button
-                  type="button"
-                  className="primary-btn core-activate-btn"
-                  onClick={onActivateCore}
-                  disabled={!canActivateCore}
-                >
-                  Activate Core
-                </button>
-              </div>
+              {!heliumCore?.active && (
+                <div className="core-controls">
+                  <input
+                    type="number"
+                    min="0"
+                    value={contrib.energy}
+                    onChange={(event) => setContrib((prev) => ({ ...prev, energy: event.target.value }))}
+                    placeholder="Energy"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    value={contrib.water}
+                    onChange={(event) => setContrib((prev) => ({ ...prev, water: event.target.value }))}
+                    placeholder="Water"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    value={contrib.biomass}
+                    onChange={(event) => setContrib((prev) => ({ ...prev, biomass: event.target.value }))}
+                    placeholder="Biomass"
+                  />
+                  <button type="button" className="ghost-btn" onClick={submitContribution}>
+                    Contribute
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-btn core-activate-btn"
+                    onClick={onActivateCore}
+                    disabled={!canActivateCore}
+                  >
+                    Activate Core
+                  </button>
+                </div>
+              )}
+
+              {heliumCore?.active && (
+                <div className="core-restart-panel">
+                  <p>Game won. Coordinate restart with all active players.</p>
+                  {!restart.requested && (
+                    <button type="button" className="primary-btn" onClick={onRequestRestart}>
+                      Request Restart Vote
+                    </button>
+                  )}
+
+                  {restart.requested && (
+                    <>
+                      <small>Requested by: {restart.requestedBy || "player"}</small>
+                      <small>
+                        Pending: {restart.pendingUsers?.length ? restart.pendingUsers.map((u) => u.username).join(", ") : "none"}
+                      </small>
+                      {!myAccepted ? (
+                        <button type="button" className="primary-btn" onClick={onAcceptRestart}>
+                          Accept Restart
+                        </button>
+                      ) : (
+                        <small>You accepted restart.</small>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

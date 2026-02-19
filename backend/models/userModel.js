@@ -1,4 +1,4 @@
-const { withTransaction } = require('./db');
+const { withTransaction, query } = require('./db');
 const { createEmptyGrid } = require('./gameRules');
 
 async function createUserWithIsland({ email, username, hashedPassword, bioma }) {
@@ -28,7 +28,6 @@ async function createUserWithIsland({ email, username, hashedPassword, bioma }) 
 }
 
 async function findByEmail(email) {
-  const { query } = require('./db');
   const result = await query(
     `SELECT id, email, username, hashed_password, bioma, island_id
      FROM users
@@ -39,7 +38,6 @@ async function findByEmail(email) {
 }
 
 async function findByUsername(username) {
-  const { query } = require('./db');
   const result = await query(
     `SELECT id, email, username, hashed_password, bioma, island_id
      FROM users
@@ -50,7 +48,6 @@ async function findByUsername(username) {
 }
 
 async function findByUsernameOrEmail(identifier) {
-  const { query } = require('./db');
   const result = await query(
     `SELECT id, email, username, hashed_password, bioma, island_id
      FROM users
@@ -62,11 +59,20 @@ async function findByUsernameOrEmail(identifier) {
 }
 
 async function findById(userId) {
-  const { query } = require('./db');
   const result = await query(
     `SELECT id, email, username, bioma, island_id
      FROM users
      WHERE id = $1`,
+    [userId]
+  );
+  return result.rows[0] || null;
+}
+
+async function deleteById(userId) {
+  const result = await query(
+    `DELETE FROM users
+     WHERE id = $1
+     RETURNING id`,
     [userId]
   );
   return result.rows[0] || null;
@@ -77,7 +83,6 @@ module.exports = {
   findByEmail,
   findByUsername,
   findByUsernameOrEmail,
-  findById
+  findById,
+  deleteById
 };
-
-

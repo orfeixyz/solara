@@ -9,7 +9,6 @@ function ResourceItem({ label, value, production, icon, highlight }) {
 
   return (
     <div className={`resource-item ${highlight ? "pulse" : ""}`}>
-      {/* Dedicated stat icon loaded from /public/images/icon-*.svg */}
       <ImageLoader src={icon} alt={label} className="resource-icon" />
       <div>
         <strong>{label}</strong>
@@ -20,7 +19,7 @@ function ResourceItem({ label, value, production, icon, highlight }) {
   );
 }
 
-export default function ResourcePanel({ resources, timeMultiplier, onChangeMultiplier }) {
+export default function ResourcePanel({ resources }) {
   const totals = resources?.totals || {};
   const production = resources?.productionPerMinute || resources?.productionPerHour || {};
   const efficiency = resources?.efficiency ?? 100;
@@ -61,25 +60,7 @@ export default function ResourcePanel({ resources, timeMultiplier, onChangeMulti
           <span>Imbalance</span>
           <strong className={imbalance <= 0 ? "ok" : "warn"}>{imbalance}</strong>
         </div>
-        <div className="metric multiplier-block">
-          <span>Time</span>
-          <div className="multiplier-group">
-            {[1, 2, 5].map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => onChangeMultiplier(value)}
-                className={timeMultiplier === value ? "selected" : ""}
-              >
-                x{value}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </section>
   );
 }
-
-
-

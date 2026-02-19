@@ -7,5 +7,7 @@ const router = express.Router();
 router.get('/', authMiddleware, coreController.getCoreState);
 router.post('/contribute', authMiddleware, coreController.contributeCore);
 router.post('/activate', authMiddleware, coreController.activateCore);
+router.post('/restart/request', authMiddleware, coreController.requestRestart);
+router.post('/restart/accept', authMiddleware, coreController.acceptRestart);
 
 module.exports = router;

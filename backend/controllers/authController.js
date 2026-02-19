@@ -122,7 +122,20 @@ async function login(req, res) {
   }
 }
 
+async function deleteMe(req, res) {
+  try {
+    const deleted = await userModel.deleteById(req.user.id);
+    if (!deleted) {
+      return res.status(404).json({ message: 'user not found' });
+    }
+    return res.json({ ok: true });
+  } catch (error) {
+    return res.status(500).json({ message: 'delete account failed', details: error.message });
+  }
+}
+
 module.exports = {
   register,
-  login
+  login,
+  deleteMe
 };

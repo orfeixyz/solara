@@ -348,6 +348,19 @@ export async function loginUser(payload) {
   }
 }
 
+
+export async function deleteMyAccount() {
+  if (USE_MOCK_API) {
+    return { ok: true };
+  }
+
+  try {
+    const { data } = await apiClient.delete("/api/auth/me");
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error, "Delete account failed"));
+  }
+}
 export async function getIslandById(islandId) {
   if (USE_MOCK_API) {
     const worldIslands = syncWorldIslandsWithUsers();
@@ -737,3 +750,29 @@ export async function setResourceMultiplier(multiplier) {
 
 
 
+
+export async function requestGameRestart() {
+  if (USE_MOCK_API) {
+    return { restarted: false };
+  }
+
+  try {
+    const { data } = await apiClient.post("/api/core/restart/request", {});
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error, "Restart request failed"));
+  }
+}
+
+export async function acceptGameRestart() {
+  if (USE_MOCK_API) {
+    return { restarted: true };
+  }
+
+  try {
+    const { data } = await apiClient.post("/api/core/restart/accept", {});
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error, "Restart vote failed"));
+  }
+}

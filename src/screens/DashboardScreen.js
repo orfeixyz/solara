@@ -14,6 +14,8 @@ export default function DashboardScreen() {
     activateCore,
     canActivateCore,
     contributeToCore,
+    requestRestartVote,
+    acceptRestartVote,
     pushToast
   } = useGame();
 
@@ -30,6 +32,8 @@ export default function DashboardScreen() {
         onActivateCore={activateCore}
         canActivateCore={canActivateCore}
         onContributeCore={contributeToCore || (async () => false)}
+        onRequestRestart={requestRestartVote || (async () => false)}
+        onAcceptRestart={acceptRestartVote || (async () => false)}
         onSelectIsland={(island) => {
           const isMine = String(island.ownerId) === String(user?.id) || island.ownerName === "You";
           if (!isMine) {

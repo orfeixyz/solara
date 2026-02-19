@@ -1079,3 +1079,15 @@ h4,
   border-radius: 10px;
   padding: 0.45rem;
 }
+
+.core-restart-panel {
+  display: grid;
+  gap: 0.3rem;
+  align-items: start;
+  justify-items: start;
+}
+
+.core-restart-panel p,
+.core-restart-panel small {
+  margin: 0;
+}

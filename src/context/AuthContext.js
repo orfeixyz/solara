@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { loginUser, registerUser, setAuthToken } from "../services/api";
+import { deleteMyAccount, loginUser, registerUser, setAuthToken } from "../services/api";
 
 const AuthContext = createContext(null);
 
@@ -69,6 +69,19 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const deleteAccount = async () => {
+    setLoading(true);
+    try {
+      await deleteMyAccount();
+      logout();
+      return true;
+    } catch (_error) {
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = useMemo(
     () => ({
       token,
@@ -77,7 +90,8 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(token),
       login,
       register,
-      logout
+      logout,
+      deleteAccount
     }),
     [token, user, loading]
   );

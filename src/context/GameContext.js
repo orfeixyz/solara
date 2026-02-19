@@ -17,7 +17,8 @@ import {
   pingPresence,
   postChatMessage,
   renameIsland as renameIslandApi,
-  setResourceMultiplier
+  requestGameRestart,
+  acceptGameRestart
 } from "../services/api";
 
 const GameContext = createContext(null);
@@ -79,9 +80,10 @@ export function GameProvider({ children }) {
   const [connectedUsers, setConnectedUsers] = useState([]);
   const [chatMessages, setChatMessages] = useState([]);
   const [islandCache, setIslandCache] = useState({});
-  const [timeMultiplier, setTimeMultiplier] = useState(1);
+  const timeMultiplier = 1;
   const [toasts, setToasts] = useState([]);
   const currentIslandRef = useRef(null);
+  const coreActiveNotifiedRef = useRef(false);
 
   const pushToast = (type, message) => {
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -149,9 +151,6 @@ export function GameProvider({ children }) {
     try {
       const remote = await getResourceTotals();
       setResources((prev) => mergeResources(prev, remote));
-      if (typeof remote?.time_multiplier === "number") {
-        setTimeMultiplier(remote.time_multiplier);
-      }
       syncMyIslandEfficiency(remote?.efficiency);
     } catch (_error) {
       setResources((prev) => mergeResources(prev, mockResources));
@@ -513,23 +512,41 @@ export function GameProvider({ children }) {
       pushToast("error", error.message || "Could not send chat message.");
     }
   };
-
-  const changeTimeMultiplier = async (next) => {
-    const multiplier = Number(next);
-    if (![1, 2, 5].includes(multiplier)) {
-      return;
-    }
-
-    setTimeMultiplier(multiplier);
+  const requestRestartVote = async () => {
     try {
-      await setResourceMultiplier(multiplier);
-      await fetchResources();
+      const next = await requestGameRestart();
+      if (next) {
+        setHeliumCore(next);
+      }
+      pushToast("success", "Restart vote started. Active players must accept.");
+      return true;
     } catch (error) {
-      pushToast("error", error.message || "Could not change multiplier.");
+      pushToast("error", error.message || "Could not request restart vote.");
+      return false;
     }
   };
 
-  useEffect(() => {
+  const acceptRestartVote = async () => {
+    try {
+      const next = await acceptGameRestart();
+      if (next) {
+        setHeliumCore(next);
+      }
+      if (next?.restarted) {
+        pushToast("success", "All active players accepted. Game restarted.");
+        await fetchResources();
+        await fetchWorld();
+      } else {
+        pushToast("success", "Restart vote accepted.");
+      }
+      return true;
+    } catch (error) {
+      pushToast("error", error.message || "Could not accept restart vote.");
+      return false;
+    }
+  };
+
+    useEffect(() => {
     if (!token) {
       setConnectedUsers([]);
       setChatMessages([]);
@@ -560,6 +577,22 @@ export function GameProvider({ children }) {
     };
   }, [token]);
 
+
+  useEffect(() => {
+    if (!token) {
+      coreActiveNotifiedRef.current = false;
+      return;
+    }
+
+    if (heliumCore?.active && !coreActiveNotifiedRef.current) {
+      coreActiveNotifiedRef.current = true;
+      pushToast("success", "Helio Core activated. Vote to restart when all players are ready.");
+    }
+
+    if (!heliumCore?.active) {
+      coreActiveNotifiedRef.current = false;
+    }
+  }, [heliumCore?.active, token]);
   const value = useMemo(
     () => ({
       biomes: BIOMES,
@@ -569,7 +602,6 @@ export function GameProvider({ children }) {
       connectedUsers,
       chatMessages,
       islandCache,
-      timeMultiplier,
       toasts,
       CORE_ACTIVATION_COST,
       fetchWorld,
@@ -582,9 +614,10 @@ export function GameProvider({ children }) {
       renameIsland,
       activateCore,
       contributeToCore,
+      requestRestartVote,
+      acceptRestartVote,
       canActivateCore: !heliumCore?.active && Boolean(heliumCore?.readyToActivate && (heliumCore?.activationRequirements?.ready ?? true)),
       sendChatMessage,
-      setTimeMultiplier: changeTimeMultiplier,
       pushToast,
       isIslandOwnedByMe
     }),
@@ -595,7 +628,6 @@ export function GameProvider({ children }) {
       connectedUsers,
       chatMessages,
       islandCache,
-      timeMultiplier,
       toasts,
       user
     ]
@@ -611,6 +643,18 @@ export function useGame() {
   }
   return context;
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

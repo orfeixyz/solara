@@ -16,17 +16,28 @@ import { imageMap } from "./data/imageMap";
 
 function ProtectedLayout({ children }) {
   const location = useLocation();
-  const { logout, user } = useAuth();
+  const { logout, deleteAccount, user } = useAuth();
   const {
     resources,
-    setTimeMultiplier,
-    timeMultiplier,
     toasts,
     chatMessages,
     connectedUsers,
-    sendChatMessage
+    sendChatMessage,
+    pushToast
   } = useGame();
   const [chatOpen, setChatOpen] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm("Delete your account permanently? This removes your island and progress.");
+    if (!confirmed) {
+      return;
+    }
+
+    const ok = await deleteAccount();
+    if (!ok) {
+      pushToast("error", "Could not delete account.");
+    }
+  };
 
   return (
     <div
@@ -38,12 +49,14 @@ function ProtectedLayout({ children }) {
         backgroundRepeat: "no-repeat"
       }}
     >
-      <Navbar user={user} onLogout={logout} location={location} onOpenChat={() => setChatOpen(true)} />
-      <ResourcePanel
-        resources={resources}
-        timeMultiplier={timeMultiplier}
-        onChangeMultiplier={setTimeMultiplier}
+      <Navbar
+        user={user}
+        onLogout={logout}
+        onDeleteAccount={handleDeleteAccount}
+        location={location}
+        onOpenChat={() => setChatOpen(true)}
       />
+      <ResourcePanel resources={resources} />
       <main className={`screen-container ${location.pathname === "/world" ? "world-screen" : ""}`}>{children}</main>
       <ChatDrawer
         open={chatOpen}

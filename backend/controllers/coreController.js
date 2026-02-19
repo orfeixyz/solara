@@ -1,6 +1,6 @@
 const { withTransaction, query } = require('../models/db');
 const buildingModel = require('../models/buildingModel');
-const { computeProductionTick, computeEfficiency, hasRequiredLevel3 } = require('../models/gameRules');
+const { createEmptyGrid, computeProductionTick, computeEfficiency, hasRequiredLevel3 } = require('../models/gameRules');
 
 function normalizeCoreRow(row) {
   const totals = {
@@ -60,64 +60,165 @@ function buildActivationRequirements({ island, buildings }) {
   };
 }
 
-async function readCoreState(userId = null) {
-  const row = (
-    await query(
-      `SELECT c.*, u.username AS activated_by_username
-       FROM helium_core_state c
-       LEFT JOIN users u ON u.id = c.activated_by
-       WHERE c.id = 1`
-    )
-  ).rows[0];
-
-  if (!row) {
-    return null;
-  }
-
-  const latestContrib = (
-    await query(
-      `SELECT h.id, h.energy, h.water, h.biomass, h.timestamp, u.username
-       FROM helium_core_contributions h
-       JOIN users u ON u.id = h.user_id
-       ORDER BY h.timestamp DESC
-       LIMIT 20`
+async function getActiveUsers(client) {
+  const rows = (
+    await client.query(
+      `SELECT p.user_id, p.username
+       FROM player_presence p
+       JOIN users u ON u.id = p.user_id
+       WHERE p.last_seen >= NOW() - INTERVAL '90 seconds'
+       ORDER BY p.username ASC`
     )
   ).rows;
 
-  const state = {
-    ...normalizeCoreRow(row),
-    contributions: latestContrib.map((item) => ({
-      id: item.id,
-      username: item.username,
-      energy: Number(item.energy),
-      water: Number(item.water),
-      biomass: Number(item.biomass),
-      createdAt: item.timestamp
-    }))
-  };
+  return rows.map((row) => ({ id: Number(row.user_id), username: row.username }));
+}
 
-  if (!userId) {
-    return state;
+async function getRestartState(client, coreRow) {
+  const requested = Boolean(coreRow.restart_requested);
+
+  if (!requested) {
+    return {
+      requested: false,
+      requestedBy: null,
+      requestedAt: null,
+      activeUsers: [],
+      acceptedUserIds: [],
+      pendingUsers: [],
+      allAccepted: false
+    };
   }
 
-  const island = (
-    await query(
-      `SELECT id, user_id, energy, water, biomass, time_multiplier
-       FROM islands
-       WHERE user_id = $1`,
-      [userId]
+  const [activeUsers, voteRows] = await Promise.all([
+    getActiveUsers(client),
+    client.query(
+      `SELECT user_id
+       FROM helium_core_restart_votes
+       WHERE accepted = TRUE`
     )
-  ).rows[0];
+  ]);
 
-  if (!island) {
-    return state;
-  }
+  const acceptedUserIds = voteRows.rows.map((row) => Number(row.user_id));
+  const acceptedSet = new Set(acceptedUserIds);
+  const pendingUsers = activeUsers.filter((user) => !acceptedSet.has(user.id));
 
-  const buildings = await buildingModel.getByIslandId(island.id);
   return {
-    ...state,
-    activationRequirements: buildActivationRequirements({ island, buildings })
+    requested: true,
+    requestedBy: coreRow.restart_requested_by_username || null,
+    requestedAt: coreRow.restart_requested_at || null,
+    activeUsers,
+    acceptedUserIds,
+    pendingUsers,
+    allAccepted: activeUsers.length > 0 && pendingUsers.length === 0
   };
+}
+
+async function resetGameState(client) {
+  const emptyGrid = JSON.stringify(createEmptyGrid());
+
+  await client.query('DELETE FROM buildings');
+
+  await client.query(
+    `UPDATE islands
+     SET grid = $1::jsonb,
+         energy = 350,
+         water = 250,
+         biomass = 300,
+         time_multiplier = 1,
+         first_level3_announced = FALSE,
+         alpha_completed = FALSE,
+         last_tick_at = NOW(),
+         updated_at = NOW()`,
+    [emptyGrid]
+  );
+
+  await client.query(
+    `UPDATE helium_core_state
+     SET active = FALSE,
+         activated_by = NULL,
+         activated_at = NULL,
+         total_energy = 0,
+         total_water = 0,
+         total_biomass = 0,
+         restart_requested = FALSE,
+         restart_requested_by = NULL,
+         restart_requested_at = NULL,
+         updated_at = NOW()
+     WHERE id = 1`
+  );
+
+  await client.query('DELETE FROM helium_core_contributions');
+  await client.query('DELETE FROM helium_core_restart_votes');
+}
+
+async function readCoreState(userId = null) {
+  const state = await withTransaction(async (client) => {
+    const row = (
+      await client.query(
+        `SELECT c.*,
+                u.username AS activated_by_username,
+                ur.username AS restart_requested_by_username
+         FROM helium_core_state c
+         LEFT JOIN users u ON u.id = c.activated_by
+         LEFT JOIN users ur ON ur.id = c.restart_requested_by
+         WHERE c.id = 1`
+      )
+    ).rows[0];
+
+    if (!row) {
+      return null;
+    }
+
+    const latestContrib = (
+      await client.query(
+        `SELECT h.id, h.energy, h.water, h.biomass, h.timestamp, u.username
+         FROM helium_core_contributions h
+         JOIN users u ON u.id = h.user_id
+         ORDER BY h.timestamp DESC
+         LIMIT 20`
+      )
+    ).rows;
+
+    const restart = await getRestartState(client, row);
+
+    const result = {
+      ...normalizeCoreRow(row),
+      restart,
+      contributions: latestContrib.map((item) => ({
+        id: item.id,
+        username: item.username,
+        energy: Number(item.energy),
+        water: Number(item.water),
+        biomass: Number(item.biomass),
+        createdAt: item.timestamp
+      }))
+    };
+
+    if (!userId) {
+      return result;
+    }
+
+    const island = (
+      await client.query(
+        `SELECT id, user_id, energy, water, biomass, time_multiplier
+         FROM islands
+         WHERE user_id = $1`,
+        [userId]
+      )
+    ).rows[0];
+
+    if (!island) {
+      return result;
+    }
+
+    const buildings = await buildingModel.getByIslandId(island.id);
+    return {
+      ...result,
+      activationRequirements: buildActivationRequirements({ island, buildings })
+    };
+  });
+
+  return state;
 }
 
 async function getCoreState(req, res) {
@@ -289,11 +390,121 @@ async function activateCore(req, res) {
   }
 }
 
+async function requestRestart(req, res) {
+  try {
+    await withTransaction(async (client) => {
+      const row = (
+        await client.query(
+          `SELECT *
+           FROM helium_core_state
+           WHERE id = 1
+           FOR UPDATE`
+        )
+      ).rows[0];
+
+      if (!row || !row.active) {
+        const err = new Error('core is not active');
+        err.status = 409;
+        throw err;
+      }
+
+      await client.query(
+        `UPDATE helium_core_state
+         SET restart_requested = TRUE,
+             restart_requested_by = $1,
+             restart_requested_at = NOW(),
+             updated_at = NOW()
+         WHERE id = 1`,
+        [req.user.id]
+      );
+
+      await client.query(
+        `INSERT INTO helium_core_restart_votes (user_id, accepted, voted_at)
+         VALUES ($1, TRUE, NOW())
+         ON CONFLICT (user_id)
+         DO UPDATE SET accepted = TRUE, voted_at = NOW()`,
+        [req.user.id]
+      );
+    });
+
+    const state = await readCoreState(req.user.id);
+    return res.json({ ...state, restarted: false });
+  } catch (error) {
+    return res.status(error.status || 500).json({ error: 'failed to request restart', details: error.message });
+  }
+}
+
+async function acceptRestart(req, res) {
+  try {
+    let restarted = false;
+
+    await withTransaction(async (client) => {
+      const row = (
+        await client.query(
+          `SELECT *
+           FROM helium_core_state
+           WHERE id = 1
+           FOR UPDATE`
+        )
+      ).rows[0];
+
+      if (!row || !row.active) {
+        const err = new Error('core is not active');
+        err.status = 409;
+        throw err;
+      }
+
+      if (!row.restart_requested) {
+        const err = new Error('restart vote has not been requested');
+        err.status = 409;
+        throw err;
+      }
+
+      await client.query(
+        `INSERT INTO helium_core_restart_votes (user_id, accepted, voted_at)
+         VALUES ($1, TRUE, NOW())
+         ON CONFLICT (user_id)
+         DO UPDATE SET accepted = TRUE, voted_at = NOW()`,
+        [req.user.id]
+      );
+
+      const activeUsers = await getActiveUsers(client);
+      const activeIds = activeUsers.map((user) => user.id);
+
+      if (!activeIds.length) {
+        return;
+      }
+
+      const acceptedRows = (
+        await client.query(
+          `SELECT user_id
+           FROM helium_core_restart_votes
+           WHERE accepted = TRUE
+             AND user_id = ANY($1::int[])`,
+          [activeIds]
+        )
+      ).rows;
+
+      const acceptedSet = new Set(acceptedRows.map((row) => Number(row.user_id)));
+      const allAccepted = activeIds.every((id) => acceptedSet.has(id));
+
+      if (allAccepted) {
+        restarted = true;
+        await resetGameState(client);
+      }
+    });
+
+    const state = await readCoreState(req.user.id);
+    return res.json({ ...state, restarted });
+  } catch (error) {
+    return res.status(error.status || 500).json({ error: 'failed to accept restart', details: error.message });
+  }
+}
+
 module.exports = {
   getCoreState,
   contributeCore,
-  activateCore
+  activateCore,
+  requestRestart,
+  acceptRestart
 };
-
-
-

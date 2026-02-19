@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-export default function Navbar({ user, onLogout, location, onOpenChat }) {
+export default function Navbar({ user, onLogout, onDeleteAccount, location, onOpenChat }) {
   const links = [
     { to: "/world", label: "World Map" },
     { to: "/tutorial", label: "Tutorial" }
@@ -29,6 +29,9 @@ export default function Navbar({ user, onLogout, location, onOpenChat }) {
           Open Chat
         </button>
         <span>{user?.username || "Operator"}</span>
+        <button type="button" onClick={onDeleteAccount} className="danger-btn">
+          Delete Account
+        </button>
         <button type="button" onClick={onLogout} className="ghost-btn">
           Logout
         </button>
