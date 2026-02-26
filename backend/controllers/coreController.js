@@ -1,6 +1,5 @@
-const { withTransaction, query } = require('../models/db');
-const buildingModel = require('../models/buildingModel');
-const { createEmptyGrid, computeProductionTick, computeEfficiency, hasRequiredLevel3 } = require('../models/gameRules');
+const { withTransaction } = require('../models/db');
+const { createEmptyGrid } = require('../models/gameRules');
 
 function normalizeCoreRow(row) {
   const totals = {
@@ -15,48 +14,21 @@ function normalizeCoreRow(row) {
     biomass: Number(row.goal_biomass || 0)
   };
 
-  const readyToActivate =
-    totals.energy >= goals.energy &&
-    totals.water >= goals.water &&
-    totals.biomass >= goals.biomass;
-
   return {
     active: Boolean(row.active),
     activatedBy: row.activated_by_username || null,
     activatedAt: row.activated_at || null,
     totals,
     goals,
-    readyToActivate,
+    readyToActivate:
+      totals.energy >= goals.energy &&
+      totals.water >= goals.water &&
+      totals.biomass >= goals.biomass,
     remaining: {
       energy: Math.max(0, goals.energy - totals.energy),
       water: Math.max(0, goals.water - totals.water),
       biomass: Math.max(0, goals.biomass - totals.biomass)
     }
-  };
-}
-
-function buildActivationRequirements({ island, buildings }) {
-  const efficiency = Math.round(computeEfficiency(island.energy, island.water, island.biomass));
-  const tick = computeProductionTick({ island, buildings });
-
-  const checks = {
-    min_one_building_level_3: hasRequiredLevel3(buildings),
-    min_efficiency_90: efficiency >= 90,
-    net_production_energy_positive: tick.net.energy > 0,
-    net_production_water_positive: tick.net.water > 0,
-    net_production_biomass_positive: tick.net.biomass > 0
-  };
-
-  return {
-    efficiency,
-    netProductionPerMinute: tick.net,
-    checks,
-    ready:
-      checks.min_one_building_level_3 &&
-      checks.min_efficiency_90 &&
-      checks.net_production_energy_positive &&
-      checks.net_production_water_positive &&
-      checks.net_production_biomass_positive
   };
 }
 
@@ -152,7 +124,7 @@ async function resetGameState(client) {
 }
 
 async function readCoreState(userId = null) {
-  const state = await withTransaction(async (client) => {
+  return withTransaction(async (client) => {
     const row = (
       await client.query(
         `SELECT c.*,
@@ -181,7 +153,7 @@ async function readCoreState(userId = null) {
 
     const restart = await getRestartState(client, row);
 
-    const result = {
+    return {
       ...normalizeCoreRow(row),
       restart,
       contributions: latestContrib.map((item) => ({
@@ -191,34 +163,11 @@ async function readCoreState(userId = null) {
         water: Number(item.water),
         biomass: Number(item.biomass),
         createdAt: item.timestamp
-      }))
-    };
-
-    if (!userId) {
-      return result;
-    }
-
-    const island = (
-      await client.query(
-        `SELECT id, user_id, energy, water, biomass, time_multiplier
-         FROM islands
-         WHERE user_id = $1`,
-        [userId]
-      )
-    ).rows[0];
-
-    if (!island) {
-      return result;
-    }
-
-    const buildings = await buildingModel.getByIslandId(island.id);
-    return {
-      ...result,
-      activationRequirements: buildActivationRequirements({ island, buildings })
+      })),
+      activationRequirements: null,
+      userId: userId || null
     };
   });
-
-  return state;
 }
 
 async function getCoreState(req, res) {
@@ -334,39 +283,6 @@ async function activateCore(req, res) {
         throw err;
       }
 
-      const island = (
-        await client.query(
-          `SELECT id, user_id, energy, water, biomass, time_multiplier
-           FROM islands
-           WHERE user_id = $1
-           FOR UPDATE`,
-          [req.user.id]
-        )
-      ).rows[0];
-
-      if (!island) {
-        const err = new Error('island not found');
-        err.status = 404;
-        throw err;
-      }
-
-      const buildings = (
-        await client.query(
-          `SELECT id, island_id, type, level, pos_x, pos_y
-           FROM buildings
-           WHERE island_id = $1`,
-          [island.id]
-        )
-      ).rows;
-
-      const requirements = buildActivationRequirements({ island, buildings });
-      if (!requirements.ready) {
-        const err = new Error('activation requirements not met');
-        err.status = 409;
-        err.requirements = requirements;
-        throw err;
-      }
-
       await client.query(
         `UPDATE helium_core_state
          SET active = TRUE,
@@ -385,7 +301,7 @@ async function activateCore(req, res) {
     return res.status(status).json({
       error: 'failed to activate core',
       details: error.message,
-      requirements: error.requirements || null
+      requirements: null
     });
   }
 }

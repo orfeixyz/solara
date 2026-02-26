@@ -28,16 +28,6 @@ function asNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function normalizeEfficiency(value, fallback = mockResources.efficiency) {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return fallback;
-  }
-  if (value <= 1.2) {
-    return Math.round(value * 100);
-  }
-  return Math.round(value);
-}
-
 function normalizeResources(payload) {
   const totalsSource = payload?.totals || payload || {};
   const productionSource = payload?.productionPerMinute || payload?.productionPerHour || payload?.net || {};
@@ -53,15 +43,12 @@ function normalizeResources(payload) {
     water: asNumber(productionSource.water, mockResources.productionPerHour.water),
     biomass: asNumber(productionSource.biomass, mockResources.productionPerHour.biomass)
   };
-
-  const imbalance = Math.round((Math.abs(totals.energy - totals.biomass) + Math.abs(totals.biomass - totals.water)) / 2);
-
   return {
     totals,
     productionPerMinute,
     productionPerHour: productionPerMinute,
-    efficiency: normalizeEfficiency(payload?.efficiency),
-    imbalance: typeof payload?.imbalance === "number" ? payload.imbalance : imbalance
+    efficiency: 100,
+    imbalance: 0
   };
 }
 
@@ -776,3 +763,4 @@ export async function acceptGameRestart() {
     throw new Error(parseError(error, "Restart vote failed"));
   }
 }
+

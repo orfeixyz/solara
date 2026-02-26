@@ -4,7 +4,7 @@ export const BUILDINGS = {
   centro_solar: {
     id: "centro_solar",
     name: "Solar Center",
-    description: "Produces large Energy output while consuming Water.",
+    description: "High energy output, moderate water usage.",
     maxLevel: 3,
     imageByLevel: [
       imageMap.buildings.solarCenterLv1,
@@ -12,25 +12,25 @@ export const BUILDINGS = {
       imageMap.buildings.solarCenterLv3
     ],
     productionByLevel: {
-      energy: [40, 95, 180],
+      energy: [45, 105, 190],
       water: [0, 0, 0],
       biomass: [0, 0, 0]
     },
     consumptionByLevel: {
       energy: [0, 0, 0],
-      water: [15, 35, 60],
+      water: [10, 22, 38],
       biomass: [0, 0, 0]
     },
     costByLevel: [
-      { energy: 120, biomass: 80, water: 60 },
-      { energy: 250, biomass: 200, water: 150 },
-      { energy: 500, biomass: 450, water: 350 }
+      { energy: 110, biomass: 70, water: 55 },
+      { energy: 230, biomass: 180, water: 130 },
+      { energy: 470, biomass: 420, water: 300 }
     ]
   },
   biojardin: {
     id: "biojardin",
     name: "Bio Garden",
-    description: "Converts Energy into Water and Biomass.",
+    description: "Strong water/biomass production with controlled energy use.",
     maxLevel: 3,
     imageByLevel: [
       imageMap.buildings.biogardenLv1,
@@ -39,24 +39,24 @@ export const BUILDINGS = {
     ],
     productionByLevel: {
       energy: [0, 0, 0],
-      water: [25, 55, 100],
-      biomass: [20, 45, 90]
+      water: [30, 65, 115],
+      biomass: [25, 55, 100]
     },
     consumptionByLevel: {
-      energy: [20, 45, 80],
+      energy: [12, 28, 50],
       water: [0, 0, 0],
       biomass: [0, 0, 0]
     },
     costByLevel: [
-      { energy: 100, biomass: 100, water: 80 },
-      { energy: 220, biomass: 220, water: 180 },
-      { energy: 450, biomass: 400, water: 350 }
+      { energy: 95, biomass: 95, water: 75 },
+      { energy: 210, biomass: 200, water: 165 },
+      { energy: 430, biomass: 380, water: 320 }
     ]
   },
   centro_comunitario: {
     id: "centro_comunitario",
     name: "Community Center",
-    description: "Balanced producer with medium Energy and Water operating costs.",
+    description: "Balanced generator with positive net output at every level.",
     maxLevel: 3,
     imageByLevel: [
       imageMap.buildings.communityCenterLv1,
@@ -64,19 +64,19 @@ export const BUILDINGS = {
       imageMap.buildings.communityCenterLv3
     ],
     productionByLevel: {
-      energy: [15, 35, 70],
-      water: [15, 35, 70],
-      biomass: [15, 35, 70]
+      energy: [24, 50, 90],
+      water: [24, 50, 90],
+      biomass: [24, 50, 90]
     },
     consumptionByLevel: {
-      energy: [20, 40, 70],
-      water: [10, 25, 50],
+      energy: [8, 18, 32],
+      water: [6, 12, 22],
       biomass: [0, 0, 0]
     },
     costByLevel: [
-      { energy: 150, biomass: 120, water: 100 },
-      { energy: 300, biomass: 260, water: 220 },
-      { energy: 600, biomass: 500, water: 400 }
+      { energy: 135, biomass: 110, water: 95 },
+      { energy: 280, biomass: 240, water: 210 },
+      { energy: 560, biomass: 470, water: 390 }
     ]
   }
 };

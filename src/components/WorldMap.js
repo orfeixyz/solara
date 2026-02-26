@@ -152,7 +152,7 @@ export default function WorldMap({
             className={`island-node ${island.isMine ? "mine" : "other"}`}
             style={{ left: `${island.mapX}%`, top: `${island.mapY}%` }}
             onClick={() => onSelectIsland(island)}
-            title={`${island.name} | ${island.ownerName} | Efficiency: ${island.efficiency || 0}%`}
+            title={`${island.name} | ${island.ownerName} `}
             disabled={!island.isMine}
           >
             <ImageLoader src={island.islandImage} alt={island.name} className="island-image" />
@@ -164,3 +164,4 @@ export default function WorldMap({
     </section>
   );
 }
+

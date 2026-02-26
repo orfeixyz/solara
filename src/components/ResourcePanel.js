@@ -22,8 +22,6 @@ function ResourceItem({ label, value, production, icon, highlight }) {
 export default function ResourcePanel({ resources }) {
   const totals = resources?.totals || {};
   const production = resources?.productionPerMinute || resources?.productionPerHour || {};
-  const efficiency = resources?.efficiency ?? 100;
-  const imbalance = resources?.imbalance ?? 0;
 
   return (
     <section className="resource-panel">
@@ -49,17 +47,6 @@ export default function ResourcePanel({ resources }) {
           icon={imageMap.resources.biomass}
           highlight={(production.biomass || 0) < 0}
         />
-      </div>
-
-      <div className="resource-metrics">
-        <div className="metric">
-          <span>Efficiency</span>
-          <strong className={efficiency >= 80 ? "ok" : "warn"}>{efficiency}%</strong>
-        </div>
-        <div className="metric">
-          <span>Imbalance</span>
-          <strong className={imbalance <= 0 ? "ok" : "warn"}>{imbalance}</strong>
-        </div>
       </div>
     </section>
   );

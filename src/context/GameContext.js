@@ -38,16 +38,8 @@ function mergeResources(current, incoming) {
   };
 
   const productionSource = incoming?.productionPerMinute || incoming?.productionPerHour || incoming?.net;
-  const efficiencyRaw = incoming?.efficiency;
-  const efficiency =
-    typeof efficiencyRaw === "number"
-      ? Math.round(efficiencyRaw <= 1.2 ? efficiencyRaw * 100 : efficiencyRaw)
-      : current?.efficiency ?? 100;
-
-  const imbalance =
-    typeof incoming?.imbalance === "number"
-      ? incoming.imbalance
-      : Math.round((Math.abs(totals.energy - totals.biomass) + Math.abs(totals.biomass - totals.water)) / 2);
+  const efficiency = 100;
+  const imbalance = 0;
 
   return {
     totals,
@@ -118,19 +110,6 @@ export function GameProvider({ children }) {
       };
     });
   };
-
-  const syncMyIslandEfficiency = (efficiency) => {
-    if (typeof efficiency !== "number") {
-      return;
-    }
-    setWorldIslands((prev) =>
-      prev.map((island) => {
-        const isMine = isIslandOwnedByMe(island);
-        return isMine ? { ...island, efficiency } : island;
-      })
-    );
-  };
-
   const fetchWorld = async () => {
     const remote = await getWorldIslands();
     if (Array.isArray(remote?.islands)) {
@@ -151,7 +130,7 @@ export function GameProvider({ children }) {
     try {
       const remote = await getResourceTotals();
       setResources((prev) => mergeResources(prev, remote));
-      syncMyIslandEfficiency(remote?.efficiency);
+      
     } catch (_error) {
       setResources((prev) => mergeResources(prev, mockResources));
     }
@@ -210,7 +189,7 @@ export function GameProvider({ children }) {
       setIslandCache((prev) => ({ ...prev, [islandId]: normalized }));
       if (remote?.resources) {
         setResources((prev) => mergeResources(prev, remote.resources));
-        syncMyIslandEfficiency(remote.resources?.efficiency);
+        
       }
       return normalized;
     } catch (_error) {
@@ -553,16 +532,11 @@ export function GameProvider({ children }) {
       return;
     }
 
-    fetchResources();
-    fetchWorld();
-    fetchCore();
-    fetchChat();
-    fetchPresence();
-    sendPresencePing();
+    Promise.allSettled([fetchResources(), fetchWorld(), fetchCore(), fetchChat(), fetchPresence(), sendPresencePing()]);
 
-    const resourceTimer = setInterval(fetchResources, 15000);
-    const worldTimer = setInterval(fetchWorld, 30000);
-    const coreTimer = setInterval(fetchCore, 10000);
+    const resourceTimer = setInterval(fetchResources, 10000);
+    const worldTimer = setInterval(fetchWorld, 15000);
+    const coreTimer = setInterval(fetchCore, 7000);
     const chatTimer = setInterval(fetchChat, 5000);
     const presenceTimer = setInterval(fetchPresence, 10000);
     const presencePingTimer = setInterval(sendPresencePing, 20000);
@@ -616,7 +590,7 @@ export function GameProvider({ children }) {
       contributeToCore,
       requestRestartVote,
       acceptRestartVote,
-      canActivateCore: !heliumCore?.active && Boolean(heliumCore?.readyToActivate && (heliumCore?.activationRequirements?.ready ?? true)),
+      canActivateCore: !heliumCore?.active && Boolean(heliumCore?.readyToActivate),
       sendChatMessage,
       pushToast,
       isIslandOwnedByMe
@@ -643,6 +617,11 @@ export function useGame() {
   }
   return context;
 }
+
+
+
+
+
 
 
 

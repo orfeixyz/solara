@@ -1,5 +1,5 @@
 const { withTransaction, query } = require('../models/db');
-const { computeEfficiency, computeProductionTick } = require('../models/gameRules');
+const { computeProductionTick } = require('../models/gameRules');
 
 const TICK_INTERVAL_MS = Number(process.env.TICK_INTERVAL_MS || 60000);
 const MAX_CATCHUP_TICKS = 240;
@@ -9,12 +9,7 @@ function toDate(value) {
   return parsed && !Number.isNaN(parsed.getTime()) ? parsed : new Date();
 }
 
-function computeImbalance(energy, water, biomass) {
-  return Math.round((Math.abs(energy - biomass) + Math.abs(biomass - water)) / 2);
-}
-
 function toResourcePayload(island, tick) {
-  const efficiencyValue = tick?.efficiency ?? computeEfficiency(island.energy, island.water, island.biomass);
   return {
     island_id: island.id,
     totals: {
@@ -32,8 +27,8 @@ function toResourcePayload(island, tick) {
       water: tick?.net?.water ?? 0,
       biomass: tick?.net?.biomass ?? 0
     },
-    efficiency: Math.round(efficiencyValue),
-    imbalance: computeImbalance(island.energy, island.water, island.biomass),
+    efficiency: 100,
+    imbalance: 0,
     time_multiplier: island.time_multiplier
   };
 }
@@ -66,28 +61,13 @@ async function loadIslandState(client, islandId) {
   return { island, buildings: buildingRows };
 }
 
-function runSingleTick(stateIsland, biome, buildings) {
-  let tick = computeProductionTick({
-    island: stateIsland,
-    biome,
-    buildings
-  });
-
-  let finalMultiplier = stateIsland.time_multiplier;
-  if (stateIsland.energy < tick.consumed.energy && stateIsland.time_multiplier > 1) {
-    finalMultiplier = 1;
-    tick = computeProductionTick({
-      island: { ...stateIsland, time_multiplier: 1 },
-      biome,
-      buildings
-    });
-  }
+function runSingleTick(stateIsland, buildings) {
+  const tick = computeProductionTick({ island: stateIsland, buildings });
 
   return {
     tick,
     next: {
       ...stateIsland,
-      time_multiplier: finalMultiplier,
       energy: Math.max(0, stateIsland.energy + tick.net.energy),
       water: Math.max(0, stateIsland.water + tick.net.water),
       biomass: Math.max(0, stateIsland.biomass + tick.net.biomass)
@@ -110,7 +90,7 @@ async function advanceIslandToNow(islandId) {
     const elapsed = Math.max(0, now - lastTickAt);
     const ticks = Math.min(MAX_CATCHUP_TICKS, Math.floor(elapsed / TICK_INTERVAL_MS));
 
-    let current = {
+    const current = {
       ...baseIsland,
       energy: Number(baseIsland.energy),
       water: Number(baseIsland.water),
@@ -118,15 +98,12 @@ async function advanceIslandToNow(islandId) {
       time_multiplier: Number(baseIsland.time_multiplier) || 1
     };
 
-    let lastTick = null;
-
-    for (let i = 0; i < ticks; i += 1) {
-      const result = runSingleTick(current, baseIsland.bioma, buildings);
-      lastTick = result.tick;
-      current = result.next;
-    }
+    const tick = runSingleTick(current, buildings).tick;
 
     if (ticks > 0) {
+      const finalEnergy = Math.max(0, current.energy + tick.net.energy * ticks);
+      const finalWater = Math.max(0, current.water + tick.net.water * ticks);
+      const finalBiomass = Math.max(0, current.biomass + tick.net.biomass * ticks);
       const nextLastTickAt = new Date(lastTickAt + ticks * TICK_INTERVAL_MS).toISOString();
 
       const updated = (
@@ -140,14 +117,7 @@ async function advanceIslandToNow(islandId) {
                updated_at = NOW()
            WHERE id = $1
            RETURNING id, user_id, energy, water, biomass, time_multiplier, last_tick_at`,
-          [
-            baseIsland.id,
-            current.energy,
-            current.water,
-            current.biomass,
-            current.time_multiplier,
-            nextLastTickAt
-          ]
+          [baseIsland.id, finalEnergy, finalWater, finalBiomass, current.time_multiplier, nextLastTickAt]
         )
       ).rows[0];
 
@@ -158,12 +128,10 @@ async function advanceIslandToNow(islandId) {
           bioma: baseIsland.bioma
         },
         buildings,
-        tick: lastTick || runSingleTick(current, baseIsland.bioma, buildings).tick,
+        tick,
         ticksApplied: ticks
       };
     }
-
-    const currentTick = runSingleTick(current, baseIsland.bioma, buildings).tick;
 
     return {
       island: {
@@ -174,7 +142,7 @@ async function advanceIslandToNow(islandId) {
         time_multiplier: current.time_multiplier
       },
       buildings,
-      tick: currentTick,
+      tick,
       ticksApplied: 0
     };
   });
@@ -205,4 +173,3 @@ module.exports = {
   getIslandResourcesByUser,
   toResourcePayload
 };
-

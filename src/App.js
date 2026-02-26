@@ -10,6 +10,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import ResourcePanel from "./components/ResourcePanel";
 import ToastStack from "./components/ToastStack";
 import ChatDrawer from "./components/ChatDrawer";
+import ButtonSound from "./components/ButtonSound";
 import { useAuth } from "./context/AuthContext";
 import { useGame } from "./context/GameContext";
 import { imageMap } from "./data/imageMap";
@@ -75,7 +76,7 @@ function App() {
   const { token } = useAuth();
 
   return (
-    <Routes>
+    <><ButtonSound /><Routes>
       <Route path="/login" element={<LoginScreen />} />
       <Route path="/register" element={<RegisterScreen />} />
       <Route
@@ -109,8 +110,10 @@ function App() {
         }
       />
       <Route path="*" element={<Navigate to={token ? "/world" : "/login"} replace />} />
-    </Routes>
+    </Routes></>
   );
 }
 
 export default App;
+
+

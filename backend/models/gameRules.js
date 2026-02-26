@@ -5,21 +5,21 @@ const BUILDING_CONFIG = {
   solar_center: {
     levels: {
       1: {
-        production: { energy: 40, water: 0, biomass: 0 },
-        consumption: { energy: 0, water: 15, biomass: 0 },
-        cost: { energy: 120, biomass: 80, water: 60 },
+        production: { energy: 45, water: 0, biomass: 0 },
+        consumption: { energy: 0, water: 10, biomass: 0 },
+        cost: { energy: 110, biomass: 70, water: 55 },
         buildTimeMin: 1
       },
       2: {
-        production: { energy: 95, water: 0, biomass: 0 },
-        consumption: { energy: 0, water: 35, biomass: 0 },
-        cost: { energy: 250, biomass: 200, water: 150 },
+        production: { energy: 105, water: 0, biomass: 0 },
+        consumption: { energy: 0, water: 22, biomass: 0 },
+        cost: { energy: 230, biomass: 180, water: 130 },
         buildTimeMin: 2
       },
       3: {
-        production: { energy: 180, water: 0, biomass: 0 },
-        consumption: { energy: 0, water: 60, biomass: 0 },
-        cost: { energy: 500, biomass: 450, water: 350 },
+        production: { energy: 190, water: 0, biomass: 0 },
+        consumption: { energy: 0, water: 38, biomass: 0 },
+        cost: { energy: 470, biomass: 420, water: 300 },
         buildTimeMin: 3
       }
     }
@@ -27,21 +27,21 @@ const BUILDING_CONFIG = {
   bio_garden: {
     levels: {
       1: {
-        production: { energy: 0, water: 25, biomass: 20 },
-        consumption: { energy: 20, water: 0, biomass: 0 },
-        cost: { energy: 100, biomass: 100, water: 80 },
+        production: { energy: 0, water: 30, biomass: 25 },
+        consumption: { energy: 12, water: 0, biomass: 0 },
+        cost: { energy: 95, biomass: 95, water: 75 },
         buildTimeMin: 1
       },
       2: {
-        production: { energy: 0, water: 55, biomass: 45 },
-        consumption: { energy: 45, water: 0, biomass: 0 },
-        cost: { energy: 220, biomass: 220, water: 180 },
+        production: { energy: 0, water: 65, biomass: 55 },
+        consumption: { energy: 28, water: 0, biomass: 0 },
+        cost: { energy: 210, biomass: 200, water: 165 },
         buildTimeMin: 2
       },
       3: {
-        production: { energy: 0, water: 100, biomass: 90 },
-        consumption: { energy: 80, water: 0, biomass: 0 },
-        cost: { energy: 450, biomass: 400, water: 350 },
+        production: { energy: 0, water: 115, biomass: 100 },
+        consumption: { energy: 50, water: 0, biomass: 0 },
+        cost: { energy: 430, biomass: 380, water: 320 },
         buildTimeMin: 3
       }
     }
@@ -49,21 +49,21 @@ const BUILDING_CONFIG = {
   community_center: {
     levels: {
       1: {
-        production: { energy: 15, water: 15, biomass: 15 },
-        consumption: { energy: 20, water: 10, biomass: 0 },
-        cost: { energy: 150, biomass: 120, water: 100 },
+        production: { energy: 24, water: 24, biomass: 24 },
+        consumption: { energy: 8, water: 6, biomass: 0 },
+        cost: { energy: 135, biomass: 110, water: 95 },
         buildTimeMin: 1
       },
       2: {
-        production: { energy: 35, water: 35, biomass: 35 },
-        consumption: { energy: 40, water: 25, biomass: 0 },
-        cost: { energy: 300, biomass: 260, water: 220 },
+        production: { energy: 50, water: 50, biomass: 50 },
+        consumption: { energy: 18, water: 12, biomass: 0 },
+        cost: { energy: 280, biomass: 240, water: 210 },
         buildTimeMin: 2
       },
       3: {
-        production: { energy: 70, water: 70, biomass: 70 },
-        consumption: { energy: 70, water: 50, biomass: 0 },
-        cost: { energy: 600, biomass: 500, water: 400 },
+        production: { energy: 90, water: 90, biomass: 90 },
+        consumption: { energy: 32, water: 22, biomass: 0 },
+        cost: { energy: 560, biomass: 470, water: 390 },
         buildTimeMin: 3
       }
     }
@@ -72,22 +72,20 @@ const BUILDING_CONFIG = {
 
 const MULTIPLIER_ENERGY_COST = {
   1: 0,
-  2: 10,
-  5: 25
+  2: 0,
+  5: 0
 };
 
 function createEmptyGrid() {
   return Array.from({ length: GRID_SIZE }, () => Array.from({ length: GRID_SIZE }, () => null));
 }
 
-function computeImbalance(energy, water, biomass) {
-  return (Math.abs(energy - biomass) + Math.abs(biomass - water)) / 2;
+function computeImbalance() {
+  return 0;
 }
 
-function computeEfficiency(energy, water, biomass) {
-  const imbalance = computeImbalance(energy, water, biomass);
-  const raw = 100 - imbalance * 0.5;
-  return Math.max(70, Math.min(115, raw));
+function computeEfficiency() {
+  return 100;
 }
 
 function getBuildCost(type, level) {
@@ -135,13 +133,11 @@ function computeProductionTick({ island, buildings }) {
   const multiplierEnergyCost = MULTIPLIER_ENERGY_COST[multiplier] || 0;
 
   const base = sumBaseFlows(buildings);
-  const efficiency = computeEfficiency(island.energy, island.water, island.biomass);
-  const efficiencyFactor = efficiency / 100;
 
   const produced = {
-    energy: Math.round(base.production.energy * efficiencyFactor * multiplier),
-    water: Math.round(base.production.water * efficiencyFactor * multiplier),
-    biomass: Math.round(base.production.biomass * efficiencyFactor * multiplier)
+    energy: Math.round(base.production.energy * multiplier),
+    water: Math.round(base.production.water * multiplier),
+    biomass: Math.round(base.production.biomass * multiplier)
   };
 
   const consumed = {
@@ -158,7 +154,7 @@ function computeProductionTick({ island, buildings }) {
 
   return {
     multiplier,
-    efficiency,
+    efficiency: 100,
     produced,
     consumed,
     net,
@@ -170,17 +166,8 @@ function hasRequiredLevel3(buildings) {
   return buildings.some((item) => item.level >= MAX_BUILDING_LEVEL);
 }
 
-function isCoreReady({ island, efficiency, buildings, productionNet }) {
-  return (
-    island.energy >= 1200 &&
-    island.biomass >= 1000 &&
-    island.water >= 800 &&
-    efficiency >= 90 &&
-    hasRequiredLevel3(buildings) &&
-    productionNet.energy > 0 &&
-    productionNet.water > 0 &&
-    productionNet.biomass > 0
-  );
+function isCoreReady({ island }) {
+  return island.energy >= 1200 && island.biomass >= 1000 && island.water >= 800;
 }
 
 module.exports = {
