@@ -229,7 +229,7 @@ function BuildFlag({ cell, slot, onSelectCell }) {
   );
 }
 
-export default function IslandGrid({ island, onSelectCell, onReadyStateChange }) {
+export default function IslandGrid({ island, onSelectCell }) {
   const cells = useMemo(() => island?.grid || [], [island]);
   const [slotMap, setSlotMap] = useState({});
 
@@ -237,11 +237,9 @@ export default function IslandGrid({ island, onSelectCell, onReadyStateChange })
     let cancelled = false;
 
     async function loadSlots() {
-      onReadyStateChange?.(false);
 
       if (!cells.length) {
         setSlotMap({});
-        onReadyStateChange?.(true);
         return;
       }
 
@@ -262,7 +260,6 @@ export default function IslandGrid({ island, onSelectCell, onReadyStateChange })
       const context = canvas.getContext("2d");
       if (!context) {
         setSlotMap({});
-        onReadyStateChange?.(true);
         return;
       }
 
@@ -273,21 +270,19 @@ export default function IslandGrid({ island, onSelectCell, onReadyStateChange })
 
       if (!cancelled) {
         setSlotMap(nextSlotMap);
-        onReadyStateChange?.(true);
       }
     }
 
     loadSlots().catch(() => {
       if (!cancelled) {
         setSlotMap({});
-        onReadyStateChange?.(true);
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [cells, onReadyStateChange]);
+  }, [cells]);
 
   return (
     <section className="panel island-grid-panel">
@@ -333,3 +328,4 @@ export default function IslandGrid({ island, onSelectCell, onReadyStateChange })
     </section>
   );
 }
+

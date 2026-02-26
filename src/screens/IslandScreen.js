@@ -25,10 +25,8 @@ export default function IslandScreen() {
   const [selectedCell, setSelectedCell] = useState(null);
   const [draftName, setDraftName] = useState("");
   const [renameOpen, setRenameOpen] = useState(false);
-  const [isIslandInitializing, setIsIslandInitializing] = useState(true);
 
   useEffect(() => {
-    setIsIslandInitializing(true);
     setSelectedCell(null);
     fetchIsland(id);
   }, [id]);
@@ -40,10 +38,6 @@ export default function IslandScreen() {
   }, [island?.name]);
 
   const handleSelectCell = (cell) => {
-    if (isIslandInitializing) {
-      return;
-    }
-
     if (cell.type !== "land") {
       pushToast("error", "This terrain is blocked.");
       return;
@@ -175,21 +169,7 @@ export default function IslandScreen() {
           backgroundRepeat: "no-repeat"
         }}
       >
-        {isIslandInitializing && (
-          <div className="island-loading-overlay" role="status" aria-live="polite">
-            <div className="island-loading-card">
-              <div className="island-loading-spinner" aria-hidden="true" />
-              <strong>Initializing island...</strong>
-              <small>Preparing buildings and terrain slots.</small>
-            </div>
-          </div>
-        )}
-
-        <IslandGrid
-          island={island}
-          onSelectCell={handleSelectCell}
-          onReadyStateChange={setIsIslandInitializing}
-        />
+        <IslandGrid island={island} onSelectCell={handleSelectCell} />
       </div>
 
       <BuildingModal
