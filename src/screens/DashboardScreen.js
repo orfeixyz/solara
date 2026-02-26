@@ -9,7 +9,6 @@ export default function DashboardScreen() {
   const { user } = useAuth();
   const {
     worldIslands,
-    isBootstrapping,
     heliumCore,
     activateCore,
     canActivateCore,
@@ -22,15 +21,6 @@ export default function DashboardScreen() {
   useEffect(() => {
     // GameContext bootstrap handles initial world fetch.
   }, []);
-
-  if (isBootstrapping) {
-    return (
-      <div className="panel">
-        <h3>Loading world...</h3>
-        <p>Fetching resources and critical assets.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="dashboard-grid full-world">

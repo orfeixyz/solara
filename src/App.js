@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -16,19 +16,68 @@ const DashboardScreen = lazy(() => import("./screens/DashboardScreen"));
 const IslandScreen = lazy(() => import("./screens/IslandScreen"));
 const TutorialScreen = lazy(() => import("./screens/TutorialScreen"));
 
-function RouteFallback() {
+function FullScreenLoader() {
   return (
-    <div className="panel">
-      <h3>Loading...</h3>
+    <div className="app-loading-screen" role="status" aria-live="polite">
+      <div className="app-loading-card">
+        <div className="app-loading-spinner" aria-hidden="true" />
+        <strong>Preparing world...</strong>
+        <small>Loading island data, resources, and shared systems.</small>
+      </div>
     </div>
   );
 }
 
+function RouteFallback() {
+  return <FullScreenLoader />;
+}
+
 function ProtectedLayout({ children }) {
   const location = useLocation();
-  const { logout, deleteAccount, user } = useAuth();
-  const { resources, toasts, chatMessages, connectedUsers, sendChatMessage, pushToast } = useGame();
+  const { logout, deleteAccount, user, token } = useAuth();
+  const { resources, toasts, chatMessages, connectedUsers, sendChatMessage, pushToast, isBootstrapping } = useGame();
   const [chatOpen, setChatOpen] = useState(false);
+  const [postLoginLoader, setPostLoginLoader] = useState(() => {
+    try {
+      return sessionStorage.getItem("solara_post_login_loader") === "1";
+    } catch (_e) {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    if (!token) {
+      try {
+        sessionStorage.removeItem("solara_post_login_loader");
+      } catch (_e) {
+        // ignore
+      }
+      setPostLoginLoader(false);
+      return;
+    }
+
+    try {
+      const active = sessionStorage.getItem("solara_post_login_loader") === "1";
+      setPostLoginLoader(active);
+    } catch (_e) {
+      // ignore
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    if (!isBootstrapping) {
+      try {
+        sessionStorage.removeItem("solara_post_login_loader");
+      } catch (_e) {
+        // ignore
+      }
+      setPostLoginLoader(false);
+    }
+  }, [isBootstrapping, token]);
 
   const handleDeleteAccount = async () => {
     const confirmed = window.confirm("Delete your account permanently? This removes your island and progress.");
@@ -42,9 +91,14 @@ function ProtectedLayout({ children }) {
     }
   };
 
+  const showLoading = Boolean(token) && (isBootstrapping || postLoginLoader);
+  if (showLoading) {
+    return <FullScreenLoader />;
+  }
+
   return (
     <div
-      className="app-shell"
+      className="app-shell app-shell-ready"
       style={{
         backgroundImage: `url(${imageMap.backgrounds.sky})`,
         backgroundSize: "cover",

@@ -46,6 +46,13 @@ export function AuthProvider({ children }) {
       const response = await loginUser(credentials);
       const nextToken = response.token || response.jwt;
       const nextUser = response.user || { id: response.userId, username: credentials.username };
+
+      try {
+        sessionStorage.setItem("solara_post_login_loader", "1");
+      } catch (_e) {
+        // ignore browser storage errors
+      }
+
       setToken(nextToken);
       setUser(nextUser);
       return response;
@@ -65,6 +72,12 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    try {
+      sessionStorage.removeItem("solara_post_login_loader");
+    } catch (_e) {
+      // ignore browser storage errors
+    }
+
     setToken(null);
     setUser(null);
   };
