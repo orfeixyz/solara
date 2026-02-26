@@ -15,6 +15,7 @@ const RegisterScreen = lazy(() => import("./screens/RegisterScreen"));
 const DashboardScreen = lazy(() => import("./screens/DashboardScreen"));
 const IslandScreen = lazy(() => import("./screens/IslandScreen"));
 const TutorialScreen = lazy(() => import("./screens/TutorialScreen"));
+const MIN_POST_LOGIN_LOADING_MS = 1800;
 
 function FullScreenLoader() {
   return (
@@ -44,6 +45,7 @@ function ProtectedLayout({ children }) {
       return false;
     }
   });
+  const [loaderDelayActive, setLoaderDelayActive] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -79,6 +81,27 @@ function ProtectedLayout({ children }) {
     }
   }, [isBootstrapping, token]);
 
+  const coreLoading = Boolean(token) && (isBootstrapping || postLoginLoader);
+
+  useEffect(() => {
+    if (!token) {
+      setLoaderDelayActive(false);
+      return;
+    }
+
+    if (coreLoading) {
+      setLoaderDelayActive(true);
+      return;
+    }
+
+    if (loaderDelayActive) {
+      const timer = setTimeout(() => {
+        setLoaderDelayActive(false);
+      }, MIN_POST_LOGIN_LOADING_MS);
+      return () => clearTimeout(timer);
+    }
+  }, [coreLoading, loaderDelayActive, token]);
+
   const handleDeleteAccount = async () => {
     const confirmed = window.confirm("Delete your account permanently? This removes your island and progress.");
     if (!confirmed) {
@@ -91,7 +114,7 @@ function ProtectedLayout({ children }) {
     }
   };
 
-  const showLoading = Boolean(token) && (isBootstrapping || postLoginLoader);
+  const showLoading = coreLoading || (Boolean(token) && loaderDelayActive);
   if (showLoading) {
     return <FullScreenLoader />;
   }
