@@ -1091,3 +1091,47 @@ h4,
 .core-restart-panel small {
   margin: 0;
 }
+.island-main-grid {
+  position: relative;
+}
+
+.island-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  background: rgba(232, 243, 236, 0.72);
+  backdrop-filter: blur(1px);
+}
+
+.island-loading-card {
+  min-width: 260px;
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 0.8rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid rgba(92, 186, 130, 0.4);
+  background: rgba(247, 255, 247, 0.95);
+  color: #1f4b39;
+  box-shadow: 0 10px 24px rgba(47, 88, 67, 0.18);
+}
+
+.island-loading-card small {
+  color: #4f7f71;
+}
+
+.island-loading-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 3px solid rgba(80, 146, 116, 0.28);
+  border-top-color: rgba(56, 135, 98, 0.95);
+  animation: island-spin 0.9s linear infinite;
+}
+
+@keyframes island-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

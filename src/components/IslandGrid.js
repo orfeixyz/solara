@@ -229,7 +229,7 @@ function BuildFlag({ cell, slot, onSelectCell }) {
   );
 }
 
-export default function IslandGrid({ island, onSelectCell }) {
+export default function IslandGrid({ island, onSelectCell, onReadyStateChange }) {
   const cells = useMemo(() => island?.grid || [], [island]);
   const [slotMap, setSlotMap] = useState({});
 
@@ -237,8 +237,11 @@ export default function IslandGrid({ island, onSelectCell }) {
     let cancelled = false;
 
     async function loadSlots() {
+      onReadyStateChange?.(false);
+
       if (!cells.length) {
         setSlotMap({});
+        onReadyStateChange?.(true);
         return;
       }
 
@@ -259,6 +262,7 @@ export default function IslandGrid({ island, onSelectCell }) {
       const context = canvas.getContext("2d");
       if (!context) {
         setSlotMap({});
+        onReadyStateChange?.(true);
         return;
       }
 
@@ -269,24 +273,24 @@ export default function IslandGrid({ island, onSelectCell }) {
 
       if (!cancelled) {
         setSlotMap(nextSlotMap);
+        onReadyStateChange?.(true);
       }
     }
 
     loadSlots().catch(() => {
       if (!cancelled) {
         setSlotMap({});
+        onReadyStateChange?.(true);
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [cells]);
+  }, [cells, onReadyStateChange]);
 
   return (
     <section className="panel island-grid-panel">
-      
-
       <div className="iso-board-wrap">
         <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="iso-board-svg" role="img" aria-label="Island build grid">
           <image
@@ -325,10 +329,7 @@ export default function IslandGrid({ island, onSelectCell }) {
             })}
           </g>
         </svg>
-      </div></section>
+      </div>
+    </section>
   );
 }
-
-
-
-
