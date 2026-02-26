@@ -20,6 +20,7 @@ import {
   requestGameRestart,
   acceptGameRestart
 } from "../services/api";
+import { CRITICAL_ASSETS, preloadAssets } from "../utils/assetLoader";
 
 const GameContext = createContext(null);
 const MAX_UPGRADE_LEVEL = 3;
@@ -38,24 +39,22 @@ function mergeResources(current, incoming) {
   };
 
   const productionSource = incoming?.productionPerMinute || incoming?.productionPerHour || incoming?.net;
-  const efficiency = 100;
-  const imbalance = 0;
 
   return {
     totals,
     productionPerMinute: {
-      energy: productionSource?.energy ?? current?.productionPerHour?.energy ?? 0,
-      water: productionSource?.water ?? current?.productionPerHour?.water ?? 0,
-      biomass: productionSource?.biomass ?? current?.productionPerHour?.biomass ?? 0
+      energy: productionSource?.energy ?? current?.productionPerMinute?.energy ?? 0,
+      water: productionSource?.water ?? current?.productionPerMinute?.water ?? 0,
+      biomass: productionSource?.biomass ?? current?.productionPerMinute?.biomass ?? 0
     },
     productionPerHour: {
       energy: productionSource?.energy ?? current?.productionPerHour?.energy ?? 0,
       water: productionSource?.water ?? current?.productionPerHour?.water ?? 0,
       biomass: productionSource?.biomass ?? current?.productionPerHour?.biomass ?? 0
     },
-    efficiency,
-    imbalance,
-    time_multiplier: incoming?.time_multiplier ?? current?.time_multiplier ?? 1
+    efficiency: 100,
+    imbalance: 0,
+    time_multiplier: 1
   };
 }
 
@@ -72,10 +71,13 @@ export function GameProvider({ children }) {
   const [connectedUsers, setConnectedUsers] = useState([]);
   const [chatMessages, setChatMessages] = useState([]);
   const [islandCache, setIslandCache] = useState({});
-  const timeMultiplier = 1;
   const [toasts, setToasts] = useState([]);
-  const currentIslandRef = useRef(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
+
   const coreActiveNotifiedRef = useRef(false);
+  const worldCacheRef = useRef({ ts: 0, data: null });
+  const resourcesCacheRef = useRef({ ts: 0, data: null });
+  const coreCacheRef = useRef({ ts: 0, data: null });
 
   const pushToast = (type, message) => {
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -98,22 +100,26 @@ export function GameProvider({ children }) {
   };
 
   const spendResources = (cost) => {
-    setResources((prev) => {
-      const nextTotals = {
+    setResources((prev) => ({
+      ...prev,
+      totals: {
         energy: Math.max(0, (prev?.totals?.energy || 0) - (cost.energy || 0)),
         water: Math.max(0, (prev?.totals?.water || 0) - (cost.water || 0)),
         biomass: Math.max(0, (prev?.totals?.biomass || 0) - (cost.biomass || 0))
-      };
-      return {
-        ...prev,
-        totals: nextTotals
-      };
-    });
+      }
+    }));
   };
-  const fetchWorld = async () => {
+
+  const fetchWorld = async ({ force = false } = {}) => {
+    const now = Date.now();
+    if (!force && worldCacheRef.current.data && now - worldCacheRef.current.ts < 8000) {
+      return worldCacheRef.current.data;
+    }
+
     const remote = await getWorldIslands();
     if (Array.isArray(remote?.islands)) {
       const decorated = remote.islands.map(decorateIsland);
+      worldCacheRef.current = { ts: now, data: decorated };
       setWorldIslands(decorated);
       return decorated;
     }
@@ -122,29 +128,43 @@ export function GameProvider({ children }) {
       .filter((island) => String(island.ownerId) === String(user?.id))
       .map(decorateIsland);
 
+    worldCacheRef.current = { ts: now, data: fallback };
     setWorldIslands(fallback);
     return fallback;
   };
 
-  const fetchResources = async () => {
+  const fetchResources = async ({ force = false } = {}) => {
+    const now = Date.now();
+    if (!force && resourcesCacheRef.current.data && now - resourcesCacheRef.current.ts < 5000) {
+      return resourcesCacheRef.current.data;
+    }
+
     try {
       const remote = await getResourceTotals();
+      resourcesCacheRef.current = { ts: now, data: remote };
       setResources((prev) => mergeResources(prev, remote));
-      
+      return remote;
     } catch (_error) {
       setResources((prev) => mergeResources(prev, mockResources));
+      return null;
     }
   };
 
-  const fetchCore = async () => {
+  const fetchCore = async ({ force = false } = {}) => {
+    const now = Date.now();
+    if (!force && coreCacheRef.current.data && now - coreCacheRef.current.ts < 5000) {
+      return coreCacheRef.current.data;
+    }
+
     try {
       const remote = await getHeliumCoreState();
       if (remote) {
+        coreCacheRef.current = { ts: now, data: remote };
         setHeliumCore(remote);
       }
       return remote;
     } catch (_error) {
-      return heliumCore;
+      return coreCacheRef.current.data || heliumCore;
     }
   };
 
@@ -155,7 +175,7 @@ export function GameProvider({ children }) {
         setChatMessages(remote.messages);
       }
     } catch (_error) {
-      // keep current chat state
+      // keep state
     }
   };
 
@@ -172,13 +192,11 @@ export function GameProvider({ children }) {
     try {
       await pingPresence();
     } catch (_error) {
-      // ignore ping errors
+      // ignore ping failures
     }
   };
 
   const fetchIsland = async (islandId) => {
-    currentIslandRef.current = islandId;
-
     try {
       const remote = await getIslandById(islandId);
       const normalized = decorateIsland({
@@ -189,7 +207,6 @@ export function GameProvider({ children }) {
       setIslandCache((prev) => ({ ...prev, [islandId]: normalized }));
       if (remote?.resources) {
         setResources((prev) => mergeResources(prev, remote.resources));
-        
       }
       return normalized;
     } catch (_error) {
@@ -289,11 +306,11 @@ export function GameProvider({ children }) {
     setIslandCache((prev) => ({ ...prev, [islandId]: optimistic }));
 
     try {
-      const response = await buildOrUpgrade({ islandId, x, y, buildingId, level: 1, timeMultiplier });
+      const response = await buildOrUpgrade({ islandId, x, y, buildingId, level: 1, timeMultiplier: 1 });
       if (response?.island) {
         setIslandCache((prev) => ({ ...prev, [islandId]: decorateIsland(response.island) }));
       }
-      await fetchResources();
+      await fetchResources({ force: true });
       return true;
     } catch (_error) {
       pushToast("error", "Build request failed. Local simulation kept.");
@@ -340,11 +357,11 @@ export function GameProvider({ children }) {
     setIslandCache((prev) => ({ ...prev, [islandId]: optimistic }));
 
     try {
-      const response = await buildOrUpgrade({ islandId, x, y, buildingId: cell.buildingId, level: nextLevel, timeMultiplier });
+      const response = await buildOrUpgrade({ islandId, x, y, buildingId: cell.buildingId, level: nextLevel, timeMultiplier: 1 });
       if (response?.island) {
         setIslandCache((prev) => ({ ...prev, [islandId]: decorateIsland(response.island) }));
       }
-      await fetchResources();
+      await fetchResources({ force: true });
       pushToast("success", `Building upgraded to level ${nextLevel}.`);
       return true;
     } catch (_error) {
@@ -376,11 +393,11 @@ export function GameProvider({ children }) {
     setIslandCache((prev) => ({ ...prev, [islandId]: optimistic }));
 
     try {
-      const response = await destroyBuilding({ islandId, x, y, timeMultiplier });
+      const response = await destroyBuilding({ islandId, x, y, timeMultiplier: 1 });
       if (response?.island) {
         setIslandCache((prev) => ({ ...prev, [islandId]: decorateIsland(response.island) }));
       }
-      await fetchResources();
+      await fetchResources({ force: true });
       pushToast("success", "Building destroyed. Cell is buildable again.");
       return true;
     } catch (_error) {
@@ -445,7 +462,7 @@ export function GameProvider({ children }) {
     try {
       const next = await contributeHeliumCore({ energy, water, biomass });
       setHeliumCore(next);
-      await fetchResources();
+      await fetchResources({ force: true });
       pushToast("success", "Resources contributed to Helium Core.");
       return true;
     } catch (error) {
@@ -491,6 +508,7 @@ export function GameProvider({ children }) {
       pushToast("error", error.message || "Could not send chat message.");
     }
   };
+
   const requestRestartVote = async () => {
     try {
       const next = await requestGameRestart();
@@ -513,8 +531,7 @@ export function GameProvider({ children }) {
       }
       if (next?.restarted) {
         pushToast("success", "All active players accepted. Game restarted.");
-        await fetchResources();
-        await fetchWorld();
+        await Promise.allSettled([fetchResources({ force: true }), fetchWorld({ force: true })]);
       } else {
         pushToast("success", "Restart vote accepted.");
       }
@@ -525,23 +542,45 @@ export function GameProvider({ children }) {
     }
   };
 
-    useEffect(() => {
+  useEffect(() => {
     if (!token) {
       setConnectedUsers([]);
       setChatMessages([]);
+      setIsBootstrapping(false);
       return;
     }
 
-    Promise.allSettled([fetchResources(), fetchWorld(), fetchCore(), fetchChat(), fetchPresence(), sendPresencePing()]);
+    let mounted = true;
 
-    const resourceTimer = setInterval(fetchResources, 10000);
-    const worldTimer = setInterval(fetchWorld, 15000);
-    const coreTimer = setInterval(fetchCore, 7000);
+    const bootstrap = async () => {
+      setIsBootstrapping(true);
+      preloadAssets(CRITICAL_ASSETS);
+
+      await Promise.allSettled([
+        fetchResources({ force: true }),
+        fetchWorld({ force: true }),
+        fetchCore({ force: true }),
+        fetchChat(),
+        fetchPresence(),
+        sendPresencePing()
+      ]);
+
+      if (mounted) {
+        setIsBootstrapping(false);
+      }
+    };
+
+    bootstrap();
+
+    const resourceTimer = setInterval(() => fetchResources(), 10000);
+    const worldTimer = setInterval(() => fetchWorld(), 20000);
+    const coreTimer = setInterval(() => fetchCore(), 9000);
     const chatTimer = setInterval(fetchChat, 5000);
     const presenceTimer = setInterval(fetchPresence, 10000);
     const presencePingTimer = setInterval(sendPresencePing, 20000);
 
     return () => {
+      mounted = false;
       clearInterval(resourceTimer);
       clearInterval(worldTimer);
       clearInterval(coreTimer);
@@ -550,7 +589,6 @@ export function GameProvider({ children }) {
       clearInterval(presencePingTimer);
     };
   }, [token]);
-
 
   useEffect(() => {
     if (!token) {
@@ -567,6 +605,7 @@ export function GameProvider({ children }) {
       coreActiveNotifiedRef.current = false;
     }
   }, [heliumCore?.active, token]);
+
   const value = useMemo(
     () => ({
       biomes: BIOMES,
@@ -577,6 +616,7 @@ export function GameProvider({ children }) {
       chatMessages,
       islandCache,
       toasts,
+      isBootstrapping,
       CORE_ACTIVATION_COST,
       fetchWorld,
       fetchResources,
@@ -603,6 +643,7 @@ export function GameProvider({ children }) {
       chatMessages,
       islandCache,
       toasts,
+      isBootstrapping,
       user
     ]
   );
@@ -617,24 +658,3 @@ export function useGame() {
   }
   return context;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

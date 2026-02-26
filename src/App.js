@@ -1,10 +1,5 @@
-import React, { useState } from "react";
+import React, { Suspense, lazy, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import LoginScreen from "./screens/LoginScreen";
-import RegisterScreen from "./screens/RegisterScreen";
-import DashboardScreen from "./screens/DashboardScreen";
-import IslandScreen from "./screens/IslandScreen";
-import TutorialScreen from "./screens/TutorialScreen";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ResourcePanel from "./components/ResourcePanel";
@@ -15,17 +10,24 @@ import { useAuth } from "./context/AuthContext";
 import { useGame } from "./context/GameContext";
 import { imageMap } from "./data/imageMap";
 
+const LoginScreen = lazy(() => import("./screens/LoginScreen"));
+const RegisterScreen = lazy(() => import("./screens/RegisterScreen"));
+const DashboardScreen = lazy(() => import("./screens/DashboardScreen"));
+const IslandScreen = lazy(() => import("./screens/IslandScreen"));
+const TutorialScreen = lazy(() => import("./screens/TutorialScreen"));
+
+function RouteFallback() {
+  return (
+    <div className="panel">
+      <h3>Loading...</h3>
+    </div>
+  );
+}
+
 function ProtectedLayout({ children }) {
   const location = useLocation();
   const { logout, deleteAccount, user } = useAuth();
-  const {
-    resources,
-    toasts,
-    chatMessages,
-    connectedUsers,
-    sendChatMessage,
-    pushToast
-  } = useGame();
+  const { resources, toasts, chatMessages, connectedUsers, sendChatMessage, pushToast } = useGame();
   const [chatOpen, setChatOpen] = useState(false);
 
   const handleDeleteAccount = async () => {
@@ -76,44 +78,47 @@ function App() {
   const { token } = useAuth();
 
   return (
-    <><ButtonSound /><Routes>
-      <Route path="/login" element={<LoginScreen />} />
-      <Route path="/register" element={<RegisterScreen />} />
-      <Route
-        path="/tutorial"
-        element={
-          <ProtectedRoute>
-            <ProtectedLayout>
-              <TutorialScreen />
-            </ProtectedLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/world"
-        element={
-          <ProtectedRoute>
-            <ProtectedLayout>
-              <DashboardScreen />
-            </ProtectedLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/island/:id"
-        element={
-          <ProtectedRoute>
-            <ProtectedLayout>
-              <IslandScreen />
-            </ProtectedLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to={token ? "/world" : "/login"} replace />} />
-    </Routes></>
+    <>
+      <ButtonSound />
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route path="/login" element={<LoginScreen />} />
+          <Route path="/register" element={<RegisterScreen />} />
+          <Route
+            path="/tutorial"
+            element={
+              <ProtectedRoute>
+                <ProtectedLayout>
+                  <TutorialScreen />
+                </ProtectedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/world"
+            element={
+              <ProtectedRoute>
+                <ProtectedLayout>
+                  <DashboardScreen />
+                </ProtectedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/island/:id"
+            element={
+              <ProtectedRoute>
+                <ProtectedLayout>
+                  <IslandScreen />
+                </ProtectedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to={token ? "/world" : "/login"} replace />} />
+        </Routes>
+      </Suspense>
+    </>
   );
 }
 
 export default App;
-
-

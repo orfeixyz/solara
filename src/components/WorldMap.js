@@ -54,7 +54,7 @@ export default function WorldMap({
   return (
     <section className="world-map-panel">
       <div className="world-map">
-        <ImageLoader src={imageMap.backgrounds.sky} alt="World sky" className="world-map-bg" />
+        <ImageLoader src={imageMap.backgrounds.sky} alt="World sky" className="world-map-bg" priority />
 
         <div className="helium-core" title="Helium Core - shared world element">
           <button
@@ -63,7 +63,7 @@ export default function WorldMap({
             onClick={() => setCorePanelOpen((prev) => !prev)}
             aria-expanded={corePanelOpen}
           >
-            <ImageLoader src={coreImage} alt="Helium Core" className="helium-core-image" />
+            <ImageLoader src={coreImage} alt="Helium Core" className="helium-core-image" priority />
           </button>
 
           <span className="helium-core-label">
@@ -155,7 +155,7 @@ export default function WorldMap({
             title={`${island.name} | ${island.ownerName} `}
             disabled={!island.isMine}
           >
-            <ImageLoader src={island.islandImage} alt={island.name} className="island-image" />
+            <ImageLoader src={island.islandImage} alt={island.name} className="island-image" lazy />
             <span className="island-label">{island.name}</span>
           </button>
         ))}
@@ -164,4 +164,5 @@ export default function WorldMap({
     </section>
   );
 }
+
 
