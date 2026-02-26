@@ -15,7 +15,7 @@ const RegisterScreen = lazy(() => import("./screens/RegisterScreen"));
 const DashboardScreen = lazy(() => import("./screens/DashboardScreen"));
 const IslandScreen = lazy(() => import("./screens/IslandScreen"));
 const TutorialScreen = lazy(() => import("./screens/TutorialScreen"));
-const MIN_POST_LOGIN_LOADING_MS = 1800;
+const MIN_POST_LOGIN_LOADING_MS = 20000;
 
 function FullScreenLoader() {
   return (
@@ -199,3 +199,4 @@ function App() {
 }
 
 export default App;
+
